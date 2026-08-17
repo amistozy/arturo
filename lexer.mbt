@@ -52,35 +52,10 @@ fn peek(p : Parser, off : Int) -> Char {
 ///|
 fn advance(p : Parser) -> Unit {
   let c = peek(p, 0)
-  p.pos = p.pos + 1
+  p.pos += 1
   if c == '\n' {
-    p.line = p.line + 1
+    p.line += 1
   }
-}
-
-///|
-fn str_trim(s : String) -> String {
-  let mut start = 0
-  let mut end = s.length()
-  while start < end &&
-        (
-          s[start] == ' ' ||
-          s[start] == '\t' ||
-          s[start] == '\n' ||
-          s[start] == '\r'
-        ) {
-    start = start + 1
-  }
-  while end > start &&
-        (
-          s[end - 1] == ' ' ||
-          s[end - 1] == '\t' ||
-          s[end - 1] == '\n' ||
-          s[end - 1] == '\r'
-        ) {
-    end = end - 1
-  }
-  s[start:end].to_owned()
 }
 
 ///|
@@ -118,7 +93,7 @@ fn dedent_str(s : String) -> String {
   lines.push(current.to_string())
   let common = lines
     .iter()
-    .filter(fn(line) { str_trim(line) != "" })
+    .filter(fn(line) { line.trim().length() > 0 })
     .map(fn(line) {
       let mut ind = 0
       while ind < line.length() && (line[ind] == ' ' || line[ind] == '\t') {
@@ -141,7 +116,7 @@ fn dedent_str(s : String) -> String {
     out.write_string(line[start:].to_owned())
     out.write_string("\n")
   }
-  str_trim(out.to_string())
+  out.to_string().trim().to_owned()
 }
 
 ///|
@@ -400,7 +375,7 @@ fn parse_guillemet_string(p : Parser) -> String raise ArturoError {
       sb.write_string(peek(p, 0).to_string())
       advance(p)
     }
-    str_trim(sb.to_string())
+    sb.to_string().trim().to_owned()
   }
 }
 

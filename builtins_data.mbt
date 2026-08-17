@@ -1147,7 +1147,7 @@ fn b_capitalize(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 ///|
 fn b_strip(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
-    VString(s) => ctx.push(VString(str_trim(s)))
+    VString(s) => ctx.push(VString(s.trim().to_owned()))
     _ => ctx.push(args[0])
   }
 }
