@@ -103,18 +103,9 @@ fn iterate_groups(
 ) -> Unit raise ArturoError {
   let items = iterable_items(collection, ctx)
   let names = iter_params(params)
-  let mut idx_name = ""
-  let mut has_idx = false
-  match with_index {
-    Some(VLiteral(s)) => {
-      has_idx = true
-      idx_name = s
-    }
-    Some(VWord(s)) => {
-      has_idx = true
-      idx_name = s
-    }
-    _ => ()
+  let idx_name = match with_index {
+    Some(VLiteral(s)) | Some(VWord(s)) => Some(s)
+    _ => None
   }
   let loop_step = if names.length() == 0 { 1 } else { names.length() }
   // save & restore loop variables
@@ -122,8 +113,9 @@ fn iterate_groups(
   let mut i = 0
   let mut run_no = 0
   while i < items.length() {
-    if has_idx {
-      ctx.env.set(idx_name, VInteger(run_no))
+    match idx_name {
+      Some(name) => ctx.env.set(name, VInteger(run_no))
+      None => ()
     }
     let group : Array[Value] = []
     for j in 0..<loop_step {
@@ -427,10 +419,8 @@ fn arr_reverse(a : Array[Value]) -> Unit {
 ///|
 fn take_string(s : String, k : Int) -> String {
   let sb = StringBuilder()
-  let mut i = 0
-  while i < k && i < s.length() {
+  for i = 0; i < k && i < s.length(); i = i + 1 {
     sb.write_string(Int::unsafe_to_char(s[i].to_int()).to_string())
-    i = i + 1
   }
   sb.to_string()
 }
@@ -586,13 +576,17 @@ fn b_remove(ctx : Ctx, args : Array[Value]) -> Unit {
 fn remove_value(x : Value, y : Value) -> Value {
   match x {
     VBlock(items) => {
+      let idx = for i in 0..<items.length() {
+        if equal(items[i], y) {
+          break i
+        }
+      } nobreak {
+        -1
+      }
       let out : Array[Value] = []
-      let mut removed = false
-      for item in items {
-        if !removed && equal(item, y) {
-          removed = true
-        } else {
-          out.push(item)
+      for i in 0..<items.length() {
+        if i != idx {
+          out.push(items[i])
         }
       }
       VBlock(out)
@@ -626,24 +620,24 @@ fn b_insert(ctx : Ctx, args : Array[Value]) -> Unit {
 fn b_index(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
     VBlock(items) => {
-      let mut found = -1
-      for i in 0..<items.length() {
+      let found = for i in 0..<items.length() {
         if equal(items[i], args[1]) {
-          found = i
-          break
+          break i
         }
+      } nobreak {
+        -1
       }
       ctx.push(VInteger(found))
     }
     VString(s) =>
       match args[1] {
         VChar(c) => {
-          let mut found = -1
-          for i in 0..<s.length() {
+          let found = for i in 0..<s.length() {
             if Int::unsafe_to_char(s[i].to_int()) == c {
-              found = i
-              break
+              break i
             }
+          } nobreak {
+            -1
           }
           ctx.push(VInteger(found))
         }
@@ -680,16 +674,7 @@ fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VString(s) =>
       match args[1] {
         VString(t) => ctx.push(VLogical(s.contains(t)))
-        VChar(c) => {
-          let mut found = false
-          for ch in s {
-            if ch == c {
-              found = true
-              break
-            }
-          }
-          ctx.push(VLogical(found))
-        }
+        VChar(c) => ctx.push(VLogical(s.iter().any(fn(ch) { ch == c })))
         _ => ctx.push(VLogical(false))
       }
     VDictionary(d) =>
@@ -714,16 +699,7 @@ fn b_inq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       ctx.push(VLogical(items.iter().any(fn(v) { equal(v, item) })))
     VString(s) =>
       match item {
-        VChar(c) => {
-          let mut found = false
-          for ch in s {
-            if ch == c {
-              found = true
-              break
-            }
-          }
-          ctx.push(VLogical(found))
-        }
+        VChar(c) => ctx.push(VLogical(s.iter().any(fn(ch) { ch == c })))
         VString(t) => ctx.push(VLogical(s.contains(t)))
         _ => ctx.push(VLogical(false))
       }
@@ -789,40 +765,30 @@ fn b_keyq(ctx : Ctx, args : Array[Value]) -> Unit {
 fn b_range(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let x = args[0]
   let y = args[1]
-  let mut start = 0
-  let mut stop = 0
-  let mut numeric = true
-  let mut infinite = false
-  match x {
-    VInteger(i) => start = i
-    VChar(c) => {
-      numeric = false
-      start = c.to_int()
-    }
+  let (start, numeric) = match x {
+    VInteger(i) => (i, true)
+    VChar(c) => (c.to_int(), false)
     _ => raise rt_err(ctx, "wrong argument type for range")
   }
-  match y {
-    VInteger(i) => stop = i
+  let (stop, infinite) = match y {
+    VInteger(i) => (i, false)
     VFloating(f) =>
-      if f.is_pos_inf() {
-        infinite = true
-      } else if f.is_neg_inf() {
-        infinite = true
+      if f.is_pos_inf() || f.is_neg_inf() {
+        (0, true)
       } else {
-        stop = f.to_int()
+        (f.to_int(), false)
       }
-    VChar(c) => stop = c.to_int()
+    VChar(c) => (c.to_int(), false)
     _ => raise rt_err(ctx, "wrong argument type for range")
   }
-  let mut step = 1
-  match attr_get(ctx.current_attrs.val, "step") {
+  let step = match attr_get(ctx.current_attrs.val, "step") {
     Some(VInteger(s)) =>
       if s == 0 {
         raise rt_err(ctx, "range with zero step")
       } else {
-        step = s.abs()
+        s.abs()
       }
-    _ => ()
+    _ => 1
   }
   let forward = if infinite { true } else { start < stop }
   ctx.push(VRange({ start, stop, step, infinite, numeric, forward }))
@@ -893,10 +859,8 @@ fn b_reverse(ctx : Ctx, args : Array[Value]) -> Unit {
     }
     VString(s) => {
       let sb = StringBuilder()
-      let mut ri = s.length() - 1
-      while ri >= 0 {
-        sb.write_string(Int::unsafe_to_char(s[ri].to_int()).to_string())
-        ri = ri - 1
+      for i = s.length() - 1; i >= 0; i = i - 1 {
+        sb.write_string(Int::unsafe_to_char(s[i].to_int()).to_string())
       }
       ctx.push(VString(sb.to_string()))
     }
@@ -1085,12 +1049,13 @@ fn b_max(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     ctx.push(VNull)
     return
   }
-  let mut best = items[0]
-  for i in 1..<items.length() {
-    if cmp_values(ctx, items[i], best) > 0 {
-      best = items[i]
+  let best = items[1:].fold(init=items[0], (best, v) => {
+    if cmp_values(ctx, v, best) > 0 {
+      v
+    } else {
+      best
     }
-  }
+  })
   ctx.push(best)
 }
 
@@ -1101,12 +1066,13 @@ fn b_min(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     ctx.push(VNull)
     return
   }
-  let mut best = items[0]
-  for i in 1..<items.length() {
-    if cmp_values(ctx, items[i], best) < 0 {
-      best = items[i]
+  let best = items[1:].fold(init=items[0], (best, v) => {
+    if cmp_values(ctx, v, best) < 0 {
+      v
+    } else {
+      best
     }
-  }
+  })
   ctx.push(best)
 }
 
@@ -1114,19 +1080,15 @@ fn b_min(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `sum value` / `product value`.
 fn b_sum(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let items = iterable_items(args[0], ctx)
-  let mut acc = 0
-  let mut floating = false
-  for item in items {
-    match as_float(item) {
-      Some(f) => {
-        acc = acc + f.to_int()
-        if item is VFloating(_) {
-          floating = true
-        }
+  let (acc, floating) = items
+    .iter()
+    .fold(init=(0, false), (state, item) => {
+      let (acc, floating) = state
+      match as_float(item) {
+        Some(f) => (acc + f.to_int(), floating || item is VFloating(_))
+        None => (acc, floating)
       }
-      None => ()
-    }
-  }
+    })
   if floating {
     ctx.push(VFloating(acc.to_double()))
   } else {
@@ -1137,13 +1099,14 @@ fn b_sum(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 ///|
 fn b_product(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let items = iterable_items(args[0], ctx)
-  let mut acc = 1
-  for item in items {
-    match as_int(item) {
-      Some(i) => acc = acc * i
-      None => ()
-    }
-  }
+  let acc = items
+    .iter()
+    .fold(init=1, (acc, item) => {
+      match as_int(item) {
+        Some(i) => acc * i
+        None => acc
+      }
+    })
   ctx.push(VInteger(acc))
 }
 
@@ -1235,15 +1198,13 @@ fn b_split(ctx : Ctx, args : Array[Value]) -> Unit {
         match every {
           Some(VInteger(n)) => {
             let parts : Array[Value] = []
-            let mut i = 0
-            while i < s.length() {
+            for i = 0; i < s.length(); i = i + n {
               let hi = if i + n > s.length() { s.length() } else { i + n }
               parts.push(
                 VString(
                   take_string(s, hi)[take_string(s, hi).length() - (hi - i):].to_owned(),
                 ),
               )
-              i = i + n
             }
             ctx.push(VBlock(parts))
           }
@@ -1434,14 +1395,12 @@ fn b_primeq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       if n < 2 {
         ctx.push(VLogical(false))
       } else {
-        let mut i = 2
-        let mut prime = true
-        while i * i <= n {
+        let prime = for i = 2; i * i <= n; i = i + 1 {
           if n % i == 0 {
-            prime = false
-            break
+            break false
           }
-          i = i + 1
+        } nobreak {
+          true
         }
         ctx.push(VLogical(prime))
       }
@@ -1453,11 +1412,10 @@ fn b_primeq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_factorial(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match as_int(args[0]) {
     Some(n) => {
-      let mut acc = 1
-      let mut i = 2
-      while i <= n {
-        acc = acc * i
-        i = i + 1
+      let acc = for i in 2..<=n; acc = 1 {
+        continue acc * i
+      } nobreak {
+        acc
       }
       ctx.push(VInteger(acc))
     }

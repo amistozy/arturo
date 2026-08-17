@@ -57,36 +57,32 @@ fn b_switch(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 ///|
 /// `while condition action`.
 fn b_while(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  let mut cond = args[0]
   let action = args[1]
-  let mut keep = true
-  while keep {
-    if is_truthy(cond) {
-      try {
-        match action {
-          VBlock(blk) => {
-            eval_block(blk, ctx)
-            ignore(ctx.stack.pop())
-          }
-          VInline(blk) => {
-            eval_block(blk, ctx)
-            ignore(ctx.stack.pop())
-          }
-          _ => ()
+  let mut cond = args[0]
+  while true {
+    if !is_truthy(cond) {
+      break
+    }
+    try {
+      match action {
+        VBlock(blk) => {
+          eval_block(blk, ctx)
+          ignore(ctx.stack.pop())
         }
-      } catch {
-        ArturoError::BreakSignal => keep = false
-        ArturoError::ContinueSignal => ()
-        err => raise err
-      }
-      if keep {
-        cond = match args[0] {
-          VBlock(c) => eval_block_last(c, ctx)
-          _ => args[0]
+        VInline(blk) => {
+          eval_block(blk, ctx)
+          ignore(ctx.stack.pop())
         }
+        _ => ()
       }
-    } else {
-      keep = false
+    } catch {
+      ArturoError::BreakSignal => break
+      ArturoError::ContinueSignal => ()
+      err => raise err
+    }
+    cond = match args[0] {
+      VBlock(c) => eval_block_last(c, ctx)
+      _ => args[0]
     }
   }
 }
@@ -96,8 +92,7 @@ fn b_while(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_until(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let action = args[0]
   let cond_blk = args[1]
-  let mut keep = true
-  while keep {
+  while true {
     try {
       match action {
         VBlock(blk) => {
@@ -107,18 +102,16 @@ fn b_until(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         _ => ()
       }
     } catch {
-      ArturoError::BreakSignal => keep = false
+      ArturoError::BreakSignal => break
       ArturoError::ContinueSignal => ()
       err => raise err
     }
-    if keep {
-      let c = match cond_blk {
-        VBlock(cb) => eval_block_last(cb, ctx)
-        _ => VNull
-      }
-      if is_truthy(c) {
-        keep = false
-      }
+    let c = match cond_blk {
+      VBlock(cb) => eval_block_last(cb, ctx)
+      _ => VNull
+    }
+    if is_truthy(c) {
+      break
     }
   }
 }
@@ -133,12 +126,10 @@ fn b_when(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let pairs = eval_block_values(blk, ctx)
   let with_any = attr_has(ctx.current_attrs.val, "any")
   let mut i = 0
-  let mut done = false
-  while i + 1 < pairs.length() && !done {
-    let mut cond = pairs[i]
-    match cond {
-      VBlock(c) => cond = eval_block_last(c, ctx)
-      _ => ()
+  while i + 1 < pairs.length() {
+    let cond = match pairs[i] {
+      VBlock(c) => eval_block_last(c, ctx)
+      v => v
     }
     if is_truthy(cond) {
       match pairs[i + 1] {
@@ -149,7 +140,7 @@ fn b_when(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         v => ctx.push(v)
       }
       if !with_any {
-        done = true
+        break
       }
     }
     i = i + 2

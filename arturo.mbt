@@ -366,9 +366,14 @@ fn seed_env(env : Env) -> Unit {
 fn eval_top(blk : Array[Value], ctx : Ctx) -> Value raise ArturoError {
   let before = ctx.stack.length()
   eval_block(blk, ctx)
-  let mut result = VNull
-  while ctx.stack.length() > before {
-    result = ctx.pop()
+  let n = ctx.stack.length() - before
+  let result = if n > 0 {
+    for _ in 0..<(n - 1) {
+      ignore(ctx.pop())
+    }
+    ctx.pop()
+  } else {
+    VNull
   }
   result
 }

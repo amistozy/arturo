@@ -540,22 +540,21 @@ fn call_user(
   attrs : Array[(String, Value)],
 ) -> Unit raise ArturoError {
   ctx.env.push_scope()
-  let mut i = 0
-  while i < params.length() && i < args.length() {
+  for i = 0; i < params.length() && i < args.length(); i = i + 1 {
     ctx.env.set(params[i], args[i])
-    i = i + 1
   }
   let saved_attrs = ctx.current_attrs.val
   ctx.current_attrs.val = attrs
   let before = ctx.stack.length()
-  let mut result = VNull
-  try {
+  let result = try {
     eval_block(main, ctx)
     if ctx.stack.length() > before {
-      result = ctx.pop()
+      ctx.pop()
+    } else {
+      VNull
     }
   } catch {
-    ArturoError::ReturnSignal(v) => result = v
+    ArturoError::ReturnSignal(v) => v
     err => {
       ctx.current_attrs.val = saved_attrs
       ctx.env.pop_scope()
@@ -954,26 +953,15 @@ fn exec_dictionary(
 
 ///|
 fn attr_get(attrs : Array[(String, Value)], name : String) -> Value? {
-  let mut found : Value? = None
-  for kv in attrs {
-    if kv.0 == name {
-      found = Some(kv.1)
-      break
-    }
+  match attrs.iter().find_first(fn(kv) { kv.0 == name }) {
+    Some(kv) => Some(kv.1)
+    None => None
   }
-  found
 }
 
 ///|
 fn attr_has(attrs : Array[(String, Value)], name : String) -> Bool {
-  let mut found = false
-  for kv in attrs {
-    if kv.0 == name {
-      found = true
-      break
-    }
-  }
-  found
+  attrs.iter().any(fn(kv) { kv.0 == name })
 }
 
 ///|

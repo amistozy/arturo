@@ -191,11 +191,12 @@ fn range_show(r : RangeVal) -> String {
   } else {
     "'\{r.stop.unsafe_to_char()}'"
   }
-  let mut res = "\{start}..\{stop}"
+  let base = "\{start}..\{stop}"
   if r.step != 1 {
-    res = "\{res} (\{r.step})"
+    "\{base} (\{r.step})"
+  } else {
+    base
   }
-  res
 }
 
 ///|

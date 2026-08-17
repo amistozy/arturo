@@ -92,13 +92,11 @@ fn str_replace_all(s : String, old : String, new : String) -> String {
   }
   let parts = s.split(old)
   let out = StringBuilder()
-  let mut first = true
-  for part in parts {
-    if !first {
+  for i, part in parts {
+    if i > 0 {
       out.write_string(new)
     }
     out.write_string(part.to_owned())
-    first = false
   }
   out.to_string()
 }
@@ -118,23 +116,27 @@ fn dedent_str(s : String) -> String {
     }
   }
   lines.push(current.to_string())
-  let mut common = 1000000
-  for line in lines {
-    if str_trim(line) != "" {
+  let common = lines
+    .iter()
+    .filter(fn(line) { str_trim(line) != "" })
+    .map(fn(line) {
       let mut ind = 0
       while ind < line.length() && (line[ind] == ' ' || line[ind] == '\t') {
         ind = ind + 1
       }
-      if ind < common {
-        common = ind
-      }
-    }
-  }
+      ind
+    })
+    .fold(init=1000000, (a, b) => if b < a { b } else { a })
   let out = StringBuilder()
   for line in lines {
-    let mut start = 0
-    if common < 1000000 {
-      start = if common < line.length() { common } else { line.length() }
+    let start = if common < 1000000 {
+      if common < line.length() {
+        common
+      } else {
+        line.length()
+      }
+    } else {
+      0
     }
     out.write_string(line[start:].to_owned())
     out.write_string("\n")
@@ -145,8 +147,7 @@ fn dedent_str(s : String) -> String {
 ///|
 /// Skip whitespace, `;`-comments and `#!` shebang lines.
 fn skip(p : Parser) -> Unit {
-  let mut looping = true
-  while looping {
+  while true {
     match peek(p, 0) {
       ' ' | '\t' | '\r' | '\n' => advance(p)
       ';' => {
@@ -166,9 +167,9 @@ fn skip(p : Parser) -> Unit {
             advance(p)
           }
         } else {
-          looping = false
+          break
         }
-      _ => looping = false
+      _ => break
     }
   }
 }
@@ -307,21 +308,24 @@ fn parse_multiline_string(p : Parser) -> String {
 fn parse_curly_string(p : Parser) -> String raise ArturoError {
   let sb = StringBuilder()
   advance(p) // '{'
-  let mut verbatim = false
-  if peek(p, 0) == ':' {
-    verbatim = true
-    advance(p)
-  } else if peek(p, 0) == '!' {
-    // tag: {!md ...} — skip the tag letters
-    advance(p)
-    while is_ident_start(peek(p, 0)) {
+  let verbatim = match peek(p, 0) {
+    ':' => {
       advance(p)
+      true
     }
+    '!' => {
+      // tag: {!md ...} — skip the tag letters
+      advance(p)
+      while is_ident_start(peek(p, 0)) {
+        advance(p)
+      }
+      false
+    }
+    _ => false
   }
   let initial_line = p.line.val
   let mut curlies = 1
-  let mut done = false
-  while !done {
+  while true {
     let c = peek(p, 0)
     if is_eof_char(c) {
       p.line.val = initial_line
@@ -339,7 +343,7 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
         advance(p)
       } else if curlies == 1 {
         advance(p)
-        done = true
+        break
       } else {
         curlies = curlies - 1
         sb.write_string(c.to_string())
@@ -349,7 +353,7 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
       // verbatim strings end with :}
       advance(p)
       advance(p)
-      done = true
+      break
     } else {
       sb.write_string(c.to_string())
       advance(p)
@@ -371,8 +375,7 @@ fn parse_guillemet_string(p : Parser) -> String raise ArturoError {
     // safe string: read until »»
     advance(p)
     let initial_line = p.line.val
-    let mut done = false
-    while !done {
+    while true {
       let c = peek(p, 0)
       if is_eof_char(c) {
         p.line.val = initial_line
@@ -384,7 +387,7 @@ fn parse_guillemet_string(p : Parser) -> String raise ArturoError {
         advance(p)
         if peek(p, 0) == '»' {
           advance(p)
-          done = true
+          break
         } else {
           sb.write_string("»")
         }
@@ -442,29 +445,30 @@ fn parse_identifier(p : Parser, add_current : Bool) -> String {
 /// floating point (with or without scientific notation).
 fn parse_number(p : Parser) -> Value raise ArturoError {
   let sb = StringBuilder()
-  let mut num_base = 10
-  let mut already = false
-  if peek(p, 0) == '0' {
-    let nxt = peek(p, 1)
-    if nxt == 'x' || nxt == 'X' {
-      num_base = 16
-      sb.write_string("0x")
-      advance(p)
-      advance(p)
-      already = true
-    } else if nxt == 'b' || nxt == 'B' {
-      num_base = 2
-      sb.write_string("0b")
-      advance(p)
-      advance(p)
-      already = true
-    } else if nxt == 'o' || nxt == 'O' {
-      num_base = 8
-      sb.write_string("0o")
-      advance(p)
-      advance(p)
-      already = true
+  let (num_base, already) = if peek(p, 0) == '0' {
+    match peek(p, 1) {
+      'x' | 'X' => {
+        sb.write_string("0x")
+        advance(p)
+        advance(p)
+        (16, true)
+      }
+      'b' | 'B' => {
+        sb.write_string("0b")
+        advance(p)
+        advance(p)
+        (2, true)
+      }
+      'o' | 'O' => {
+        sb.write_string("0o")
+        advance(p)
+        advance(p)
+        (8, true)
+      }
+      _ => (10, false)
     }
+  } else {
+    (10, false)
   }
   if already {
     let mut count = 0
@@ -500,14 +504,12 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     return VInteger(value)
   }
   // decimal
-  let mut has_dot = false
   let mut dots = 0
   while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
     sb.write_string(peek(p, 0).to_string())
     advance(p)
   }
   if peek(p, 0) == '.' && peek(p, 1) >= '0' && peek(p, 1) <= '9' {
-    has_dot = true
     dots = dots + 1
     sb.write_string(".")
     advance(p)
@@ -560,7 +562,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     }
     return VFloating(fval)
   }
-  if has_dot {
+  if dots > 0 {
     let fval = @string.parse_double(text) catch {
       _ =>
         raise ArturoError::ParseError(
@@ -921,8 +923,7 @@ fn parse_block(
 ) -> Array[Value] raise ArturoError {
   let out : Array[Value] = []
   let initial_line = p.line.val
-  let mut done = false
-  while !done {
+  while true {
     skip(p)
     let c = peek(p, 0)
     if is_eof_char(c) {
@@ -940,7 +941,7 @@ fn parse_block(
           )
         }
       }
-      done = true
+      break
     } else if c == '"' {
       let s = parse_string(p, '"')
       if peek(p, 0) == ':' {
@@ -1088,7 +1089,7 @@ fn parse_block(
     } else if c == ']' {
       if is_sub_block {
         advance(p)
-        done = true
+        break
       } else if is_sub_inline {
         p.line.val = initial_line
         raise ArturoError::ParseError(
@@ -1104,7 +1105,7 @@ fn parse_block(
     } else if c == ')' {
       if is_sub_inline {
         advance(p)
-        done = true
+        break
       } else if is_sub_block {
         p.line.val = initial_line
         raise ArturoError::ParseError(
