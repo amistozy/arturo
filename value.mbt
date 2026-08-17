@@ -1,0 +1,313 @@
+///|
+/// The Arturo value model — a faithful MoonBit port of the core
+/// value kinds of the reference interpreter (`src/vm/values/types.nim`),
+/// restricted to the subset supported by this EDSL.
+///
+/// Everything in Arturo is a `Value`: constants, words, blocks,
+/// dictionaries, ranges and functions are all represented uniformly.
+pub(all) enum Value {
+  VNull
+  VLogical(Bool)
+  VInteger(Int)
+  VFloating(Double)
+  VChar(Char)
+  VString(String)
+  VWord(String)
+  VLiteral(String)
+  VLabel(String)
+  VAttribute(String)
+  VAttributeLabel(String)
+  VPath(Array[Value])
+  VPathLabel(Array[Value])
+  VSymbol(String)
+  VBlock(Array[Value])
+  VInline(Array[Value])
+  VDictionary(Array[(String, Value)])
+  VRange(RangeVal)
+  VFunction(FunctionVal)
+  VType(String)
+}
+
+///|
+pub(all) struct RangeVal {
+  start : Int
+  stop : Int
+  step : Int
+  infinite : Bool
+  numeric : Bool
+  forward : Bool
+}
+
+///|
+pub(all) enum FunctionVal {
+  UserFunction(params~ : Array[String], main~ : Array[Value], inline~ : Bool)
+  BuiltinFunction(name~ : String)
+}
+
+///|
+/// Constructors for the most common values.
+
+///|
+pub fn null() -> Value {
+  VNull
+}
+
+///|
+pub fn logical(b : Bool) -> Value {
+  VLogical(b)
+}
+
+///|
+pub fn integer(i : Int) -> Value {
+  VInteger(i)
+}
+
+///|
+pub fn floating(f : Double) -> Value {
+  VFloating(f)
+}
+
+///|
+pub fn string(s : String) -> Value {
+  VString(s)
+}
+
+///|
+pub fn block(items : Array[Value]) -> Value {
+  VBlock(items)
+}
+
+///|
+pub fn dictionary(items : Array[(String, Value)]) -> Value {
+  VDictionary(items)
+}
+
+///|
+/// Value kind names, mirroring `stringify` in `printable.nim`
+/// (lowercase name, used by `type`, `is?` and `inspect`).
+pub fn type_name(v : Value) -> String {
+  match v {
+    VNull => "null"
+    VLogical(_) => "logical"
+    VInteger(_) => "integer"
+    VFloating(_) => "floating"
+    VChar(_) => "char"
+    VString(_) => "string"
+    VWord(_) => "word"
+    VLiteral(_) => "literal"
+    VLabel(_) => "label"
+    VAttribute(_) => "attribute"
+    VAttributeLabel(_) => "attributelabel"
+    VPath(_) => "path"
+    VPathLabel(_) => "pathlabel"
+    VSymbol(_) => "symbol"
+    VBlock(_) => "block"
+    VInline(_) => "inline"
+    VDictionary(_) => "dictionary"
+    VRange(_) => "range"
+    VFunction(_) => "function"
+    VType(_) => "type"
+  }
+}
+
+///|
+/// `type` returns a `:type` value; the textual form is `:name`.
+pub fn type_of(v : Value) -> Value {
+  VType(type_name(v))
+}
+
+///|
+/// Truthiness used by `if`, `while`, `switch`, ... :
+/// only `null` and `false` are falsy (see `isFalse` in `vlogical.nim`).
+pub fn is_truthy(v : Value) -> Bool {
+  match v {
+    VNull => false
+    VLogical(b) => b
+    _ => true
+  }
+}
+
+///|
+/// Numeric view helpers (used by builtins).
+pub fn as_int(v : Value) -> Int? {
+  match v {
+    VInteger(i) => Some(i)
+    VFloating(f) => Some(f.to_int())
+    _ => None
+  }
+}
+
+///|
+pub fn as_float(v : Value) -> Double? {
+  match v {
+    VInteger(i) => Some(i.to_double())
+    VFloating(f) => Some(f)
+    _ => None
+  }
+}
+
+///|
+pub fn as_string(v : Value) -> String? {
+  match v {
+    VString(s) => Some(s)
+    _ => None
+  }
+}
+
+///|
+/// Nim-style rendering of doubles (`$` in `printable.nim`):
+/// integral values keep a trailing `.0`, `nan`/`±∞` get special forms.
+fn float_show(f : Double) -> String {
+  if f.is_nan() {
+    return "nan"
+  }
+  if f.is_pos_inf() {
+    return "∞"
+  }
+  if f.is_neg_inf() {
+    return "-∞"
+  }
+  let s = f.to_string()
+  if f == f.floor() && f.abs() < 1000000000000000.0 {
+    return s + ".0"
+  }
+  s
+}
+
+///|
+fn range_show(r : RangeVal) -> String {
+  let start = if r.numeric {
+    r.start.to_string()
+  } else {
+    "'" + r.start.unsafe_to_char().to_string() + "'"
+  }
+  let stop = if r.infinite {
+    "∞"
+  } else if r.numeric {
+    r.stop.to_string()
+  } else {
+    "'" + r.stop.unsafe_to_char().to_string() + "'"
+  }
+  let mut res = start + ".." + stop
+  if r.step != 1 {
+    res = res + " (" + r.step.to_string() + ")"
+  }
+  res
+}
+
+///|
+/// Function rendering (the reference prints `<function>[params](addr)`;
+/// we omit the address, which is not reproducible).
+fn function_show(f : FunctionVal) -> String {
+  match f {
+    UserFunction(params~, main=_, inline=_) =>
+      "<function>[" + params.join(" ") + "]"
+    BuiltinFunction(name~) => "<function:builtin:" + name + ">"
+  }
+}
+
+///|
+/// `Show` for values renders them exactly like Arturo's `print`
+/// (mirrors `$` in `printable.nim`).
+pub impl Show for Value with fn to_string(self) {
+  show_value(self)
+}
+
+///|
+/// Plain string rendering of a value — mirrors `$` in `printable.nim`.
+/// This is what `print` (for non-block values) and `join` use.
+pub fn show_value(v : Value) -> String {
+  match v {
+    VNull => "null"
+    VLogical(b) => if b { "true" } else { "false" }
+    VInteger(i) => i.to_string()
+    VFloating(f) => float_show(f)
+    VChar(c) => c.to_string()
+    VString(s) => s
+    VWord(s) => s
+    VLiteral(s) => s
+    VLabel(s) => s
+    VAttribute(s) => s
+    VAttributeLabel(s) => s
+    VPath(p) => p.map(show_value).join("\\")
+    VPathLabel(p) => p.map(show_value).join("\\")
+    VSymbol(s) => s
+    VBlock(a) => "[" + a.map(show_value).join(" ") + "]"
+    VInline(a) => "[" + a.map(show_value).join(" ") + "]"
+    VDictionary(d) =>
+      "[" + d.map(fn(kv) { kv.0 + ":" + show_value(kv.1) }).join(" ") + "]"
+    VRange(r) => range_show(r)
+    VFunction(f) => function_show(f)
+    VType(t) => ":" + t
+  }
+}
+
+///|
+/// Element-wise equality for path/block/inline arrays.
+fn eq_arrays(x : Array[Value], y : Array[Value]) -> Bool {
+  if x.length() != y.length() {
+    return false
+  }
+  for i in 0..<x.length() {
+    if !equal(x[i], y[i]) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// Value equality — mirrors `==` in `comparison.nim`:
+/// numeric kinds compare across `:integer`/`:floating`, everything else
+/// must have the same kind and equal contents.
+pub fn equal(a : Value, b : Value) -> Bool {
+  match (a, b) {
+    (VNull, VNull) => true
+    (VLogical(x), VLogical(y)) => x == y
+    (VInteger(x), VInteger(y)) => x == y
+    (VFloating(x), VFloating(y)) => x == y
+    (VInteger(x), VFloating(y)) => x.to_double() == y
+    (VFloating(x), VInteger(y)) => x == y.to_double()
+    (VChar(x), VChar(y)) => x == y
+    (VString(x), VString(y)) => x == y
+    (VWord(x), VWord(y)) => x == y
+    (VLiteral(x), VLiteral(y)) => x == y
+    (VLabel(x), VLabel(y)) => x == y
+    (VAttribute(x), VAttribute(y)) => x == y
+    (VAttributeLabel(x), VAttributeLabel(y)) => x == y
+    (VPath(x), VPath(y)) => eq_arrays(x, y)
+    (VPathLabel(x), VPathLabel(y)) => eq_arrays(x, y)
+    (VSymbol(x), VSymbol(y)) => x == y
+    (VBlock(x), VBlock(y)) => eq_arrays(x, y)
+    (VInline(x), VInline(y)) => eq_arrays(x, y)
+    (VDictionary(x), VDictionary(y)) => {
+      if x.length() != y.length() {
+        return false
+      }
+      let mut ok = true
+      for kv in x {
+        let mut found = false
+        for kv2 in y {
+          if kv2.0 == kv.0 && equal(kv.1, kv2.1) {
+            found = true
+            break
+          }
+        }
+        if !found {
+          ok = false
+          break
+        }
+      }
+      ok
+    }
+    (VRange(x), VRange(y)) =>
+      x.start == y.start &&
+      x.stop == y.stop &&
+      x.step == y.step &&
+      x.infinite == y.infinite &&
+      x.numeric == y.numeric &&
+      x.forward == y.forward
+    (VType(x), VType(y)) => x == y
+    _ => false
+  }
+}

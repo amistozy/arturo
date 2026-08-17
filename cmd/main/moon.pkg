@@ -1,5 +1,1 @@
-// import {
-//   "amistozy/arturo" @lib,
-// }
-
 pkgtype(kind: "executable")

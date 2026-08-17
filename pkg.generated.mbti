@@ -1,0 +1,104 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "amistozy/arturo"
+
+// Values
+pub fn as_float(Value) -> Double?
+
+pub fn as_int(Value) -> Int?
+
+pub fn as_string(Value) -> String?
+
+pub fn block(Array[Value]) -> Value
+
+pub fn dictionary(Array[(String, Value)]) -> Value
+
+pub fn equal(Value, Value) -> Bool
+
+pub fn floating(Double) -> Value
+
+pub fn get_symbol(Env, String) -> Value?
+
+pub fn integer(Int) -> Value
+
+pub fn is_truthy(Value) -> Bool
+
+pub fn logical(Bool) -> Value
+
+pub fn new_env() -> Env
+
+pub fn null() -> Value
+
+pub fn parse(String) -> Value raise ArturoError
+
+pub fn run(String) -> RunResult raise ArturoError
+
+pub fn run_with(Env, String) -> RunResult raise ArturoError
+
+pub fn set_symbol(Env, String, Value) -> Unit
+
+pub fn show_value(Value) -> String
+
+pub fn string(String) -> Value
+
+pub fn type_name(Value) -> String
+
+pub fn type_of(Value) -> Value
+
+// Errors
+pub(all) suberror ArturoError {
+  ParseError(line~ : Int, message~ : String)
+  RuntimeError(line~ : Int, message~ : String)
+  BreakSignal
+  ContinueSignal
+  ReturnSignal(Value)
+}
+
+// Types and methods
+type Env
+
+pub(all) enum FunctionVal {
+  UserFunction(params~ : Array[String], main~ : Array[Value], inline~ : Bool)
+  BuiltinFunction(name~ : String)
+}
+
+pub(all) struct RangeVal {
+  start : Int
+  stop : Int
+  step : Int
+  infinite : Bool
+  numeric : Bool
+  forward : Bool
+}
+
+pub(all) struct RunResult {
+  value : Value
+  output : String
+}
+
+pub(all) enum Value {
+  VNull
+  VLogical(Bool)
+  VInteger(Int)
+  VFloating(Double)
+  VChar(Char)
+  VString(String)
+  VWord(String)
+  VLiteral(String)
+  VLabel(String)
+  VAttribute(String)
+  VAttributeLabel(String)
+  VPath(Array[Value])
+  VPathLabel(Array[Value])
+  VSymbol(String)
+  VBlock(Array[Value])
+  VInline(Array[Value])
+  VDictionary(Array[(String, Value)])
+  VRange(RangeVal)
+  VFunction(FunctionVal)
+  VType(String)
+}
+pub impl Show for Value
+
+// Type aliases
+
+// Traits
