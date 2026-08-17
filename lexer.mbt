@@ -20,13 +20,13 @@ pub(all) suberror ArturoError {
 ///|
 priv struct Parser {
   src : String
-  pos : Ref[Int]
-  line : Ref[Int]
+  mut pos : Int
+  mut line : Int
 }
 
 ///|
 fn parser_new(src : String) -> Parser {
-  { src, pos: Ref(0), line: Ref(1) }
+  { src, pos: 0, line: 1 }
 }
 
 ///|
@@ -41,7 +41,7 @@ fn is_eof_char(c : Char) -> Bool {
 
 ///|
 fn peek(p : Parser, off : Int) -> Char {
-  let i = p.pos.val + off
+  let i = p.pos + off
   if i < p.src.length() {
     p.src[i].unsafe_to_char()
   } else {
@@ -52,9 +52,9 @@ fn peek(p : Parser, off : Int) -> Char {
 ///|
 fn advance(p : Parser) -> Unit {
   let c = peek(p, 0)
-  p.pos.val = p.pos.val + 1
+  p.pos = p.pos + 1
   if c == '\n' {
-    p.line.val = p.line.val + 1
+    p.line = p.line + 1
   }
 }
 
@@ -180,17 +180,14 @@ fn skip(p : Parser) -> Unit {
 fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
   let sb = StringBuilder()
   advance(p) // opening quote
-  let initial_line = p.line.val
+  let initial_line = p.line
   let mut in_code = false
   let mut done = false
   while !done {
     let c = peek(p, 0)
     if is_eof_char(c) {
-      p.line.val = initial_line
-      raise ArturoError::ParseError(
-        line=p.line.val,
-        message="unterminated string",
-      )
+      p.line = initial_line
+      raise ArturoError::ParseError(line=p.line, message="unterminated string")
     } else if c == stopper {
       advance(p)
       done = true
@@ -275,9 +272,9 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
         }
       }
     } else if c == '\n' || c == '\r' {
-      p.line.val = initial_line
+      p.line = initial_line
       raise ArturoError::ParseError(
-        line=p.line.val,
+        line=p.line,
         message="newline in quoted string",
       )
     } else {
@@ -323,14 +320,14 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
     }
     _ => false
   }
-  let initial_line = p.line.val
+  let initial_line = p.line
   let mut curlies = 1
   while true {
     let c = peek(p, 0)
     if is_eof_char(c) {
-      p.line.val = initial_line
+      p.line = initial_line
       raise ArturoError::ParseError(
-        line=p.line.val,
+        line=p.line,
         message="unterminated curly string",
       )
     } else if c == '{' {
@@ -374,13 +371,13 @@ fn parse_guillemet_string(p : Parser) -> String raise ArturoError {
   if peek(p, 0) == '«' {
     // safe string: read until »»
     advance(p)
-    let initial_line = p.line.val
+    let initial_line = p.line
     while true {
       let c = peek(p, 0)
       if is_eof_char(c) {
-        p.line.val = initial_line
+        p.line = initial_line
         raise ArturoError::ParseError(
-          line=p.line.val,
+          line=p.line,
           message="unterminated string",
         )
       } else if c == '»' {
@@ -428,12 +425,12 @@ fn parse_identifier(p : Parser, add_current : Bool) -> String {
     sb.write_string(peek(p, 0).to_string())
   }
   advance(p)
-  let initial = p.pos.val
+  let initial = p.pos
   while is_ident_char(peek(p, 0)) {
     sb.write_string(peek(p, 0).to_string())
     advance(p)
   }
-  if peek(p, 0) == '?' && p.pos.val != initial {
+  if peek(p, 0) == '?' && p.pos != initial {
     sb.write_string("?")
     advance(p)
   }
@@ -488,7 +485,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     }
     if count == 0 {
       raise ArturoError::ParseError(
-        line=p.line.val,
+        line=p.line,
         message="invalid number literal",
       )
     }
@@ -497,7 +494,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     let value = @string.parse_int(digits, base=num_base) catch {
       _ =>
         raise ArturoError::ParseError(
-          line=p.line.val,
+          line=p.line,
           message="invalid number literal",
         )
     }
@@ -556,7 +553,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     let fval = @string.parse_double(ftext) catch {
       _ =>
         raise ArturoError::ParseError(
-          line=p.line.val,
+          line=p.line,
           message="invalid number literal",
         )
     }
@@ -566,22 +563,19 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     let fval = @string.parse_double(text) catch {
       _ =>
         raise ArturoError::ParseError(
-          line=p.line.val,
+          line=p.line,
           message="invalid number literal",
         )
     }
     return VFloating(fval)
   }
   if text == "" {
-    raise ArturoError::ParseError(
-      line=p.line.val,
-      message="invalid number literal",
-    )
+    raise ArturoError::ParseError(line=p.line, message="invalid number literal")
   }
   let ival = @string.parse_int(text) catch {
     _ =>
       raise ArturoError::ParseError(
-        line=p.line.val,
+        line=p.line,
         message="invalid number literal",
       )
   }
@@ -922,21 +916,21 @@ fn parse_block(
   is_sub_inline : Bool,
 ) -> Array[Value] raise ArturoError {
   let out : Array[Value] = []
-  let initial_line = p.line.val
+  let initial_line = p.line
   while true {
     skip(p)
     let c = peek(p, 0)
     if is_eof_char(c) {
       if level != 0 {
-        p.line.val = initial_line
+        p.line = initial_line
         if is_sub_block {
           raise ArturoError::ParseError(
-            line=p.line.val,
+            line=p.line,
             message="missing closing `]`",
           )
         } else {
           raise ArturoError::ParseError(
-            line=p.line.val,
+            line=p.line,
             message="missing closing `)`",
           )
         }
@@ -999,7 +993,7 @@ fn parse_block(
       let num = parse_number(p)
       if peek(p, 0) == ':' {
         raise ArturoError::ParseError(
-          line=p.line.val,
+          line=p.line,
           message="rational literals are not supported in this subset",
         )
       }
@@ -1091,13 +1085,13 @@ fn parse_block(
         advance(p)
         break
       } else if is_sub_inline {
-        p.line.val = initial_line
+        p.line = initial_line
         raise ArturoError::ParseError(
-          line=p.line.val,
+          line=p.line,
           message="missing closing `)`",
         )
       } else {
-        raise ArturoError::ParseError(line=p.line.val, message="stray `]`")
+        raise ArturoError::ParseError(line=p.line, message="stray `]`")
       }
     } else if c == '(' {
       advance(p)
@@ -1107,13 +1101,13 @@ fn parse_block(
         advance(p)
         break
       } else if is_sub_block {
-        p.line.val = initial_line
+        p.line = initial_line
         raise ArturoError::ParseError(
-          line=p.line.val,
+          line=p.line,
           message="missing closing `]`",
         )
       } else {
-        raise ArturoError::ParseError(line=p.line.val, message="stray `)`")
+        raise ArturoError::ParseError(line=p.line, message="stray `)`")
       }
     } else if c == '{' {
       let s = parse_curly_string(p)
@@ -1124,7 +1118,7 @@ fn parse_block(
         out.push(VString(s))
       }
     } else if c == '}' {
-      raise ArturoError::ParseError(line=p.line.val, message="stray `}`")
+      raise ArturoError::ParseError(line=p.line, message="stray `}`")
     } else if c == '«' {
       out.push(VString(parse_guillemet_string(p)))
     } else if c == 'ø' || c == '∅' {

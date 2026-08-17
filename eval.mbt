@@ -84,7 +84,7 @@ priv struct Ctx {
   out : StringBuilder
   pending_attrs : Ref[Array[(String, Value)]?]
   current_attrs : Ref[Array[(String, Value)]]
-  line : Ref[Int]
+  line : Int
 }
 
 ///|
@@ -95,7 +95,7 @@ fn Ctx::new() -> Ctx {
     out: StringBuilder(),
     pending_attrs: Ref(None),
     current_attrs: Ref([]),
-    line: Ref(1),
+    line: 1,
   }
 }
 
@@ -107,14 +107,14 @@ fn Ctx::with_env(env : Env) -> Ctx {
     out: StringBuilder(),
     pending_attrs: Ref(None),
     current_attrs: Ref([]),
-    line: Ref(1),
+    line: 1,
   }
 }
 
 ///|
 /// Runtime error helpers.
 fn rt_err(ctx : Ctx, msg : String) -> ArturoError {
-  ArturoError::RuntimeError(line=ctx.line.val, message=msg)
+  ArturoError::RuntimeError(line=ctx.line, message=msg)
 }
 
 ///|
