@@ -28,7 +28,7 @@ fn iterable_items(v : Value, ctx : Ctx) -> Array[Value] raise ArturoError {
     }
     VDictionary(d) => {
       let out : Array[Value] = []
-      for kv in d {
+      for kv in d.iter() {
         out.push(VString(kv.0))
         out.push(kv.1)
       }
@@ -657,7 +657,8 @@ fn b_index(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `keys dict` / `values dict`.
 fn b_keys(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
-    VDictionary(d) => ctx.push(VBlock(d.map(fn(kv) { VString(kv.0) })))
+    VDictionary(d) =>
+      ctx.push(VBlock(d.keys().map(fn(k) { VString(k) }).to_array()))
     _ => ctx.push(VBlock([]))
   }
 }
@@ -665,7 +666,7 @@ fn b_keys(ctx : Ctx, args : Array[Value]) -> Unit {
 ///|
 fn b_values(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
-    VDictionary(d) => ctx.push(VBlock(d.map(fn(kv) { kv.1 })))
+    VDictionary(d) => ctx.push(VBlock(d.values().to_array()))
     _ => ctx.push(VBlock([]))
   }
 }
@@ -693,7 +694,7 @@ fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
     VDictionary(d) =>
       match args[1] {
-        VString(k) => ctx.push(VLogical(d.iter().any(fn(kv) { kv.0 == k })))
+        VString(k) => ctx.push(VLogical(d.contains(k)))
         _ => ctx.push(VLogical(false))
       }
     VRange(r) => {
@@ -728,7 +729,7 @@ fn b_inq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
     VDictionary(d) =>
       match item {
-        VString(k) => ctx.push(VLogical(d.iter().any(fn(kv) { kv.0 == k })))
+        VString(k) => ctx.push(VLogical(d.contains(k)))
         _ => ctx.push(VLogical(false))
       }
     VRange(r) => {
@@ -777,10 +778,8 @@ fn b_zeroq(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `key? dict key`.
 fn b_keyq(ctx : Ctx, args : Array[Value]) -> Unit {
   match (args[0], args[1]) {
-    (VDictionary(d), VString(k)) =>
-      ctx.push(VLogical(d.iter().any(fn(kv) { kv.0 == k })))
-    (VDictionary(d), VLiteral(k)) =>
-      ctx.push(VLogical(d.iter().any(fn(kv) { kv.0 == k })))
+    (VDictionary(d), VString(k)) => ctx.push(VLogical(d.contains(k)))
+    (VDictionary(d), VLiteral(k)) => ctx.push(VLogical(d.contains(k)))
     _ => ctx.push(VLogical(false))
   }
 }
@@ -853,7 +852,7 @@ fn b_dictionary(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VBlock(blk) => ctx.push(VDictionary(exec_dictionary(blk, ctx)))
     VInline(blk) => ctx.push(VDictionary(exec_dictionary(blk, ctx)))
     VDictionary(d) => ctx.push(VDictionary(d))
-    _ => ctx.push(VDictionary([]))
+    _ => ctx.push(VDictionary(Map([])))
   }
 }
 
@@ -1590,7 +1589,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     "dictionary" =>
       match x {
         VDictionary(d) => ctx.push(VDictionary(d))
-        _ => ctx.push(VDictionary([]))
+        _ => ctx.push(VDictionary(Map([])))
       }
     "range" =>
       match x {

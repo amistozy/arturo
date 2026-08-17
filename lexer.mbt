@@ -1050,7 +1050,14 @@ fn parse_block(
         advance(p)
         out.push(VLabel(id))
       } else if peek(p, 0) == '\\' {
-        out.push(VPath(parse_path(p, VWord(id))))
+        let path = parse_path(p, VWord(id))
+        if peek(p, 0) == ':' {
+          // path label: `d\key: value` stores through the path
+          advance(p)
+          out.push(VPathLabel(path))
+        } else {
+          out.push(VPath(path))
+        }
       } else {
         out.push(VWord(id))
       }

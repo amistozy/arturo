@@ -73,6 +73,22 @@ test "dictionaries" {
 }
 
 ///|
+test "dictionary keys keep insertion order and overwrite" {
+  let src =
+    #|d: #[name: "John" name: "Jane" age: 38]
+    #|print d
+    #|d\name: "Doe"
+    #|print d
+    #|print keys d
+    #|
+  let r = @arturo.run(src)
+  inspect(
+    r.output,
+    content="[name:Jane age:38]\n[name:Doe age:38]\nname age \n",
+  )
+}
+
+///|
 test "run returns last value" {
   let r = @arturo.run("1 + 2")
   inspect(r.value, content="3")

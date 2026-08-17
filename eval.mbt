@@ -606,8 +606,8 @@ fn fetch_path(parts : Array[Value], ctx : Ctx) -> Value? {
             }
           }
           (VDictionary(d), VLiteral(k)) =>
-            match d.iter().find_first(fn(kv) { kv.0 == k }) {
-              Some(kv) => current = kv.1
+            match d.get(k) {
+              Some(v2) => current = v2
               None => return None
             }
           (VString(s), VInteger(k)) =>
@@ -664,22 +664,10 @@ fn set_path(
         raise rt_err(ctx, "index out of bounds")
       }
     }
-    (VDictionary(d), VLiteral(k)) => {
-      let nd : Array[(String, Value)] = []
-      let mut inserted = false
-      for item in d {
-        if item.0 == k {
-          nd.push((k, v))
-          inserted = true
-        } else {
-          nd.push(item)
-        }
-      }
-      if !inserted {
-        nd.push((k, v))
-      }
-      ctx.env.set(base_name, VDictionary(nd))
-    }
+    (VDictionary(d), VLiteral(k)) =>
+      // dictionaries are mutable (like the reference's OrderedTable):
+      // assign in place, keeping the original insertion position
+      d[k] = v
     _ => raise rt_err(ctx, "cannot assign through path")
   }
 }
@@ -939,11 +927,14 @@ fn replace_ampersands(v : Value, names : Ref[Array[String]]) -> Value {
 
 ///|
 /// Evaluate a block as a dictionary: labels become key/value pairs.
+/// Re-assigning the same key replaces the previous value while keeping
+/// its original insertion position (MoonBit's `Map` is a linked hash
+/// map, exactly like the reference's `OrderedTable`).
 fn exec_dictionary(
   blk : Array[Value],
   ctx : Ctx,
-) -> Array[(String, Value)] raise ArturoError {
-  let out : Array[(String, Value)] = []
+) -> Map[String, Value] raise ArturoError {
+  let out : Map[String, Value] = Map([])
   let mut i = 0
   let n = blk.length()
   while i < n {
@@ -951,7 +942,7 @@ fn exec_dictionary(
       VLabel(name) => {
         let idx2 = eval_statement(blk, i + 1, ctx)
         let v = pop_or_null(ctx)
-        out.push((name, v))
+        out[name] = v
         i = idx2
       }
       _ => {

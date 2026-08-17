@@ -22,7 +22,7 @@ pub(all) enum Value {
   VSymbol(String)
   VBlock(Array[Value])
   VInline(Array[Value])
-  VDictionary(Array[(String, Value)])
+  VDictionary(Map[String, Value])
   VRange(RangeVal)
   VFunction(FunctionVal)
   VType(String)
@@ -78,8 +78,15 @@ pub fn block(items : Array[Value]) -> Value {
 }
 
 ///|
+/// Build a dictionary from key/value pairs. The pairs are inserted in
+/// order; later pairs with a duplicate key overwrite earlier ones
+/// (like the reference's `OrderedTable`).
 pub fn dictionary(items : Array[(String, Value)]) -> Value {
-  VDictionary(items)
+  let m : Map[String, Value] = Map([])
+  for kv in items {
+    m[kv.0] = kv.1
+  }
+  VDictionary(m)
 }
 
 ///|
@@ -234,8 +241,13 @@ pub fn show_value(v : Value) -> String {
     VSymbol(s) => s
     VBlock(a) => "[" + a.map(show_value).join(" ") + "]"
     VInline(a) => "[" + a.map(show_value).join(" ") + "]"
-    VDictionary(d) =>
-      "[" + d.map(fn(kv) { kv.0 + ":" + show_value(kv.1) }).join(" ") + "]"
+    VDictionary(d) => {
+      let items : Array[String] = []
+      for k, v in d {
+        items.push(k + ":" + show_value(v))
+      }
+      "[" + items.join(" ") + "]"
+    }
     VRange(r) => range_show(r)
     VFunction(f) => function_show(f)
     VType(t) => ":" + t
@@ -284,21 +296,13 @@ pub fn equal(a : Value, b : Value) -> Bool {
       if x.length() != y.length() {
         return false
       }
-      let mut ok = true
-      for kv in x {
-        let mut found = false
-        for kv2 in y {
-          if kv2.0 == kv.0 && equal(kv.1, kv2.1) {
-            found = true
-            break
-          }
-        }
-        if !found {
-          ok = false
-          break
+      for k, v in x {
+        match y.get(k) {
+          Some(v2) => if !equal(v, v2) { return false }
+          None => return false
         }
       }
-      ok
+      true
     }
     (VRange(x), VRange(y)) =>
       x.start == y.start &&

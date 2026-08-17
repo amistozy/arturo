@@ -92,7 +92,7 @@ pub(all) enum Value {
   VSymbol(String)
   VBlock(Array[Value])
   VInline(Array[Value])
-  VDictionary(Array[(String, Value)])
+  VDictionary(Map[String, Value])
   VRange(RangeVal)
   VFunction(FunctionVal)
   VType(String)

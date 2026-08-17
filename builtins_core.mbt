@@ -183,9 +183,9 @@ fn b_case(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         VString(s) | VWord(s) | VLiteral(s) => s
         _ => show_value(x)
       }
-      match d.iter().find_first(fn(kv) { kv.0 == key }) {
-        Some(kv) =>
-          match kv.1 {
+      match d.get(key) {
+        Some(v2) =>
+          match v2 {
             VBlock(a) => {
               eval_block(a, ctx)
               ignore(ctx.stack.pop())
@@ -509,15 +509,16 @@ fn inspect_value(
     }
     VDictionary(d) => {
       out.write_string("[ :dictionary\n")
-      for i in 0..<d.length() {
+      let entries = d.iter().to_array()
+      for i in 0..<entries.length() {
         indent(out, level + 1)
-        out.write_string(d[i].0 + ": ")
-        inspect_value(d[i].1, level + 1, false, out)
-        if i != d.length() - 1 {
+        out.write_string(entries[i].0 + ": ")
+        inspect_value(entries[i].1, level + 1, false, out)
+        if i != entries.length() - 1 {
           out.write_string("\n")
         }
       }
-      if d.length() > 0 {
+      if entries.length() > 0 {
         out.write_string("\n")
       }
       indent(out, level)
