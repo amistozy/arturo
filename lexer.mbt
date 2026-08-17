@@ -59,24 +59,6 @@ fn advance(p : Parser) -> Unit {
 }
 
 ///|
-/// Replace all occurrences (MoonBit's `String::replace` only replaces
-/// the first one).
-fn str_replace_all(s : String, old : String, new : String) -> String {
-  if old == "" {
-    return s
-  }
-  let parts = s.split(old)
-  let out = StringBuilder()
-  for i, part in parts {
-    if i > 0 {
-      out.write_string(new)
-    }
-    out.write_string(part.to_owned())
-  }
-  out.to_string()
-}
-
-///|
 /// Remove the common leading whitespace of all non-empty lines
 /// (mirrors Nim's `dedent`), then trim.
 fn dedent_str(s : String) -> String {

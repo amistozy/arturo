@@ -534,15 +534,10 @@ fn b_render(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let is_template = attr_has(ctx.current_attrs.val, "template")
   let out = StringBuilder()
   if is_template {
-    let rewritten = str_replace_all(
-      str_replace_all(
-        str_replace_all(s, "<||=", "<|| to :string "),
-        "||>",
-        "««",
-      ),
-      "<||",
-      "»»",
-    )
+    let rewritten = s
+      .replace_all(old="<||=", new="<|| to :string ")
+      .replace_all(old="||>", new="««")
+      .replace_all(old="<||", new="»»")
     let code = "««\{rewritten}»»"
     let parsed = parse(code) catch {
       _ => {

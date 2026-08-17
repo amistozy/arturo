@@ -593,8 +593,8 @@ fn remove_value(x : Value, y : Value) -> Value {
     }
     VString(s) =>
       match y {
-        VString(t) => VString(str_replace_all(s, t, ""))
-        VChar(c) => VString(str_replace_all(s, c.to_string(), ""))
+        VString(t) => VString(s.replace_all(old=t, new=""))
+        VChar(c) => VString(s.replace_all(old=c.to_string(), new=""))
         _ => x
       }
     _ => x
@@ -1257,7 +1257,7 @@ fn b_pad(ctx : Ctx, args : Array[Value]) -> Unit {
 fn b_replace(ctx : Ctx, args : Array[Value]) -> Unit {
   match (args[0], args[1], args[2]) {
     (VString(s), VString(old), VString(new)) =>
-      ctx.push(VString(str_replace_all(s, old, new)))
+      ctx.push(VString(s.replace_all(old~, new~)))
     (VBlock(items), old, new) => {
       let out : Array[Value] = []
       for item in items {
