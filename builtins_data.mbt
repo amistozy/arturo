@@ -79,7 +79,7 @@ fn iter_params(params : Value) -> Array[String] {
   match params {
     VLiteral(s) => [s]
     VBlock(items) =>
-      items.filter_map(fn(x) {
+      items.filter_map(x => {
         match x {
           VWord(w) | VLiteral(w) => Some(w)
           _ => None
@@ -109,7 +109,7 @@ fn iterate_groups(
   }
   let loop_step = if names.length() == 0 { 1 } else { names.length() }
   // save & restore loop variables
-  let saved : Array[(String, Value?)] = names.map(fn(n) { (n, ctx.env.get(n)) })
+  let saved : Array[(String, Value?)] = names.map(n => (n, ctx.env.get(n)))
   let mut i = 0
   let mut run_no = 0
   while i < items.length() {
@@ -180,10 +180,7 @@ fn with_attr(ctx : Ctx) -> Value? {
 ///|
 /// `loop collection params action`.
 fn b_loop(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), fn(
-    _group,
-    ctx2,
-  ) -> Unit raise ArturoError {
+  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (_group, ctx2) => {
     match args[2] {
       VBlock(blk) => {
         eval_block(blk, ctx2)
@@ -202,10 +199,7 @@ fn b_loop(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `map collection params action`.
 fn b_map(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let res : Array[Value] = []
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), fn(
-    _group,
-    ctx2,
-  ) -> Unit raise ArturoError {
+  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (_group, ctx2) => {
     res.push(action_result(args[2], ctx2))
   })
   ctx.push(VBlock(res))
@@ -219,10 +213,7 @@ fn b_select(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let first_attr = attr_get(ctx.current_attrs.val, "first")
   let last_attr = attr_get(ctx.current_attrs.val, "last")
   let res : Array[Value] = []
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), fn(
-    group,
-    ctx2,
-  ) -> Unit raise ArturoError {
+  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (group, ctx2) => {
     let v = action_result(args[2], ctx2)
     if is_truthy(v) {
       res.push(group[0])
@@ -246,10 +237,7 @@ fn b_select(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// condition holds.
 fn b_filter(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let res : Array[Value] = []
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), fn(
-    group,
-    ctx2,
-  ) -> Unit raise ArturoError {
+  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (group, ctx2) => {
     let v = action_result(args[2], ctx2)
     if !is_truthy(v) {
       res.push(group[0])
@@ -262,10 +250,7 @@ fn b_filter(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `every? collection params condition`.
 fn b_everyq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let mut ok = true
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), fn(
-    _group,
-    ctx2,
-  ) -> Unit raise ArturoError {
+  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (_group, ctx2) => {
     let v = action_result(args[2], ctx2)
     if !is_truthy(v) {
       ok = false
@@ -279,10 +264,7 @@ fn b_everyq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `some? collection params condition`.
 fn b_someq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let mut found = false
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), fn(
-    _group,
-    ctx2,
-  ) -> Unit raise ArturoError {
+  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (_group, ctx2) => {
     let v = action_result(args[2], ctx2)
     if is_truthy(v) {
       found = true
@@ -486,7 +468,7 @@ fn maybe_inplace(ctx : Ctx, x : Value, f : (Value) -> Value) -> Bool {
 ///|
 /// `append x y` (also `++`).
 fn b_append(ctx : Ctx, args : Array[Value]) -> Unit {
-  if maybe_inplace(ctx, args[0], fn(v) { append_value(v, args[1]) }) {
+  if maybe_inplace(ctx, args[0], v => append_value(v, args[1])) {
     return
   }
   ctx.push(append_value(args[0], args[1]))
@@ -513,7 +495,7 @@ fn append_value(x : Value, y : Value) -> Value {
 ///|
 /// `prepend x y`.
 fn b_prepend(ctx : Ctx, args : Array[Value]) -> Unit {
-  if maybe_inplace(ctx, args[0], fn(v) { prepend_value(v, args[1]) }) {
+  if maybe_inplace(ctx, args[0], v => prepend_value(v, args[1])) {
     return
   }
   ctx.push(prepend_value(args[0], args[1]))
@@ -566,7 +548,7 @@ fn b_pop(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `remove x y` (also `--`) — remove elements equal to `y` from a
 /// block, or the first occurrence of the substring from a string.
 fn b_remove(ctx : Ctx, args : Array[Value]) -> Unit {
-  if maybe_inplace(ctx, args[0], fn(v) { remove_value(v, args[1]) }) {
+  if maybe_inplace(ctx, args[0], v => remove_value(v, args[1])) {
     return
   }
   ctx.push(remove_value(args[0], args[1]))
@@ -651,8 +633,7 @@ fn b_index(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `keys dict` / `values dict`.
 fn b_keys(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
-    VDictionary(d) =>
-      ctx.push(VBlock(d.keys().map(fn(k) { VString(k) }).to_array()))
+    VDictionary(d) => ctx.push(VBlock(d.keys().map(k => VString(k)).to_array()))
     _ => ctx.push(VBlock([]))
   }
 }
@@ -669,12 +650,11 @@ fn b_values(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `contains? collection value`.
 fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
-    VBlock(items) =>
-      ctx.push(VLogical(items.iter().any(fn(v) { v == args[1] })))
+    VBlock(items) => ctx.push(VLogical(items.iter().any(v => v == args[1])))
     VString(s) =>
       match args[1] {
         VString(t) => ctx.push(VLogical(s.contains(t)))
-        VChar(c) => ctx.push(VLogical(s.iter().any(fn(ch) { ch == c })))
+        VChar(c) => ctx.push(VLogical(s.iter().any(ch => ch == c)))
         _ => ctx.push(VLogical(false))
       }
     VDictionary(d) =>
@@ -684,7 +664,7 @@ fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
     VRange(r) => {
       let items = range_values(r, ctx)
-      ctx.push(VLogical(items.iter().any(fn(v) { v == args[1] })))
+      ctx.push(VLogical(items.iter().any(v => v == args[1])))
     }
     _ => ctx.push(VLogical(false))
   }
@@ -695,10 +675,10 @@ fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_inq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let item = args[0]
   match args[1] {
-    VBlock(items) => ctx.push(VLogical(items.iter().any(fn(v) { v == item })))
+    VBlock(items) => ctx.push(VLogical(items.iter().any(v => v == item)))
     VString(s) =>
       match item {
-        VChar(c) => ctx.push(VLogical(s.iter().any(fn(ch) { ch == c })))
+        VChar(c) => ctx.push(VLogical(s.iter().any(ch => ch == c)))
         VString(t) => ctx.push(VLogical(s.contains(t)))
         _ => ctx.push(VLogical(false))
       }
@@ -709,7 +689,7 @@ fn b_inq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
     VRange(r) => {
       let items = range_values(r, ctx)
-      ctx.push(VLogical(items.iter().any(fn(v) { v == item })))
+      ctx.push(VLogical(items.iter().any(v => v == item)))
     }
     _ => ctx.push(VLogical(false))
   }
@@ -894,7 +874,7 @@ fn b_sort(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
     VBlock(items) => {
       let copy = items
-      copy.sort_by(fn(a, b) { sort_key(a).compare(sort_key(b)) })
+      copy.sort_by((a, b) => sort_key(a).compare(sort_key(b)))
       ctx.push(VBlock(copy))
     }
     VString(s) => {
@@ -902,7 +882,7 @@ fn b_sort(ctx : Ctx, args : Array[Value]) -> Unit {
       for c in s {
         chars.push(c)
       }
-      chars.sort_by(fn(a, b) { a.compare(b) })
+      chars.sort_by((a, b) => a.compare(b))
       let sb = StringBuilder()
       for c in chars {
         sb.write_char(c)
@@ -939,7 +919,7 @@ fn b_unique(ctx : Ctx, args : Array[Value]) -> Unit {
     VBlock(items) => {
       let out : Array[Value] = []
       for item in items {
-        if !out.iter().any(fn(v) { v == item }) {
+        if !out.iter().any(v => v == item) {
           out.push(item)
         }
       }
@@ -1325,12 +1305,12 @@ fn b_round(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_sqrt(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  num1(ctx, args, fn(x) { x.sqrt() })
+  num1(ctx, args, x => x.sqrt())
 }
 
 ///|
 fn b_exp(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  num1(ctx, args, fn(x) { @math.pow(2.718281828459045, x) })
+  num1(ctx, args, x => @math.pow(2.718281828459045, x))
 }
 
 ///|

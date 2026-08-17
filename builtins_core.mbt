@@ -231,7 +231,7 @@ fn b_function(ctx : Ctx, args : Array[Value]) -> Unit {
   let params : Array[String] = match args[0] {
     VLiteral(s) => [s]
     VBlock(items) =>
-      items.filter_map(fn(x) {
+      items.filter_map(x => {
         match x {
           VWord(w) | VLiteral(w) => Some(w)
           _ => None

@@ -75,8 +75,8 @@ fn dedent_str(s : String) -> String {
   lines.push(current.to_string())
   let common = lines
     .iter()
-    .filter(fn(line) { line.trim().length() > 0 })
-    .map(fn(line) {
+    .filter(line => line.trim().length() > 0)
+    .map(line => {
       let mut ind = 0
       while ind < line.length() && (line[ind] == ' ' || line[ind] == '\t') {
         ind = ind + 1

@@ -885,7 +885,7 @@ fn collect_thick_arrow(
       if args.length() == 1 {
         (VLiteral(args[0]), sub, i + 1)
       } else {
-        (VBlock(args.map(fn(a) { VLiteral(a) })), sub, i + 1)
+        (VBlock(args.map(a => VLiteral(a))), sub, i + 1)
       }
     }
     VWord(w) =>
@@ -899,7 +899,7 @@ fn collect_thick_arrow(
             args.push(name)
             sub.push(VWord(name))
           }
-          (VBlock(args.map(fn(a) { VLiteral(a) })), sub, i + 1)
+          (VBlock(args.map(a => VLiteral(a))), sub, i + 1)
         }
         _ => (VBlock([]), [blk[i]], i + 1)
       }
@@ -915,7 +915,7 @@ fn replace_ampersands(v : Value, names : Ref[Array[String]]) -> Value {
       names.val.push(name)
       VWord(name)
     }
-    VBlock(items) => VBlock(items.map(fn(it) { replace_ampersands(it, names) }))
+    VBlock(items) => VBlock(items.map(it => replace_ampersands(it, names)))
     _ => v
   }
 }
@@ -952,7 +952,7 @@ fn exec_dictionary(
 
 ///|
 fn attr_get(attrs : Array[(String, Value)], name : String) -> Value? {
-  match attrs.iter().find_first(fn(kv) { kv.0 == name }) {
+  match attrs.iter().find_first(kv => kv.0 == name) {
     Some(kv) => Some(kv.1)
     None => None
   }
@@ -960,7 +960,7 @@ fn attr_get(attrs : Array[(String, Value)], name : String) -> Value? {
 
 ///|
 fn attr_has(attrs : Array[(String, Value)], name : String) -> Bool {
-  attrs.iter().any(fn(kv) { kv.0 == name })
+  attrs.iter().any(kv => kv.0 == name)
 }
 
 ///|

@@ -90,13 +90,13 @@ fn binop_inplace(
 
 ///|
 fn b_add(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  if binop_inplace(ctx, args[0], args[1], fn(a, b) { binop_add(a, b) }) {
+  if binop_inplace(ctx, args[0], args[1], (a, b) => binop_add(a, b)) {
     return
   }
   match (args[0], args[1]) {
     (VChar(c), VInteger(n)) =>
       ctx.push(VChar(Int::unsafe_to_char(c.to_int() + n)))
-    _ => bin_num(ctx, args, fn(a, b) { a + b }, fn(a, b) { a + b })
+    _ => bin_num(ctx, args, (a, b) => a + b, (a, b) => a + b)
   }
 }
 
@@ -114,13 +114,13 @@ fn binop_add(a : Value, b : Value) -> Value {
 
 ///|
 fn b_sub(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  if binop_inplace(ctx, args[0], args[1], fn(a, b) { binop_sub(a, b) }) {
+  if binop_inplace(ctx, args[0], args[1], (a, b) => binop_sub(a, b)) {
     return
   }
   match (args[0], args[1]) {
     (VChar(c), VInteger(n)) =>
       ctx.push(VChar(Int::unsafe_to_char(c.to_int() - n)))
-    _ => bin_num(ctx, args, fn(a, b) { a - b }, fn(a, b) { a - b })
+    _ => bin_num(ctx, args, (a, b) => a - b, (a, b) => a - b)
   }
 }
 
@@ -138,10 +138,10 @@ fn binop_sub(a : Value, b : Value) -> Value {
 
 ///|
 fn b_mul(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  if binop_inplace(ctx, args[0], args[1], fn(a, b) { binop_mul(a, b) }) {
+  if binop_inplace(ctx, args[0], args[1], (a, b) => binop_mul(a, b)) {
     return
   }
-  bin_num(ctx, args, fn(a, b) { a * b }, fn(a, b) { a * b })
+  bin_num(ctx, args, (a, b) => a * b, (a, b) => a * b)
 }
 
 ///|
@@ -157,10 +157,10 @@ fn binop_mul(a : Value, b : Value) -> Value {
 
 ///|
 fn b_div(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  if binop_inplace(ctx, args[0], args[1], fn(a, b) { binop_div(a, b) }) {
+  if binop_inplace(ctx, args[0], args[1], (a, b) => binop_div(a, b)) {
     return
   }
-  bin_num(ctx, args, fn(a, b) { a / b }, fn(a, b) { a / b })
+  bin_num(ctx, args, (a, b) => a / b, (a, b) => a / b)
 }
 
 ///|
@@ -183,10 +183,10 @@ fn b_fdiv(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_mod(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  if binop_inplace(ctx, args[0], args[1], fn(a, b) { binop_mod(a, b) }) {
+  if binop_inplace(ctx, args[0], args[1], (a, b) => binop_mod(a, b)) {
     return
   }
-  bin_num(ctx, args, fn(a, b) { a % b }, fn(a, b) { a % b })
+  bin_num(ctx, args, (a, b) => a % b, (a, b) => a % b)
 }
 
 ///|
