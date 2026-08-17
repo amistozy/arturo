@@ -36,8 +36,6 @@ pub fn run_with(Env, String) -> RunResult raise ArturoError
 
 pub fn set_symbol(Env, String, Value) -> Unit
 
-pub fn show_value(Value) -> String
-
 pub fn string(String) -> Value
 
 pub fn type_name(Value) -> String

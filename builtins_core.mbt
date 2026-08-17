@@ -172,7 +172,7 @@ fn b_case(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VDictionary(d) => {
       let key = match x {
         VString(s) | VWord(s) | VLiteral(s) => s
-        _ => show_value(x)
+        _ => x.to_string()
       }
       match d.get(key) {
         Some(v2) =>
@@ -382,7 +382,7 @@ fn b_ensure(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VBlock(blk) => {
       let v = eval_block_last(blk, ctx)
       if !is_truthy(v) {
-        raise rt_err(ctx, "assertion failed: \{show_value(VBlock(blk))}")
+        raise rt_err(ctx, "assertion failed: \{VBlock(blk)}")
       }
     }
     _ => ()
@@ -415,7 +415,7 @@ fn b_print(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VBlock(blk) => {
       let vals = eval_block_values(blk, ctx)
       for v in vals {
-        ctx.out.write_string(show_value(v))
+        ctx.out.write_string(v.to_string())
         if in_lines {
           ctx.out.write_string("\n")
         } else {
@@ -426,7 +426,7 @@ fn b_print(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         ctx.out.write_string("\n")
       }
     }
-    v => ctx.out.write_string("\{show_value(v)}\n")
+    v => ctx.out.write_string("\{v}\n")
   }
 }
 
@@ -437,10 +437,10 @@ fn b_prints(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VBlock(blk) => {
       let vals = eval_block_values(blk, ctx)
       for v in vals {
-        ctx.out.write_string("\{show_value(v)} ")
+        ctx.out.write_string("\{v} ")
       }
     }
-    v => ctx.out.write_string(show_value(v))
+    v => ctx.out.write_string(v.to_string())
   }
 }
 
@@ -515,8 +515,8 @@ fn inspect_value(
       indent(out, level)
       out.write_string("]")
     }
-    VFunction(_) => out.write_string("\{show_value(v)} :function")
-    _ => out.write_string("\{show_value(v)} :\{type_name(v)}")
+    VFunction(_) => out.write_string("\{v} :function")
+    _ => out.write_string("\{v} :\{type_name(v)}")
   }
 }
 
@@ -575,7 +575,7 @@ fn b_render(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
           code = false
           let vals = eval_code_segments(src, ctx)
           for v in vals {
-            out.write_string(show_value(v))
+            out.write_string(v.to_string())
           }
           i = i + 1
         } else {

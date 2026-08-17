@@ -316,8 +316,7 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
     VPath(parts) => {
       let v = match fetch_path(parts, ctx) {
         Some(x) => x
-        None =>
-          raise rt_err(ctx, "cannot resolve path: \{show_value(VPath(parts))}")
+        None => raise rt_err(ctx, "cannot resolve path: \{VPath(parts)}")
       }
       ctx.push(v)
       eval_infix_tail(blk, i + 1, ctx)

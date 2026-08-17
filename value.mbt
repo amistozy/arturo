@@ -204,7 +204,7 @@ fn range_show(r : RangeVal) -> String {
 /// we omit the address, which is not reproducible).
 fn function_show(f : FunctionVal) -> String {
   match f {
-    UserFunction(params~, main=_, inline=_) => "<function>[\{params.join(" ")}]"
+    UserFunction(params~, ..) => "<function>[\{params.join(" ")}]"
     BuiltinFunction(name~) => "<function:builtin:\{name}>"
   }
 }
@@ -213,14 +213,7 @@ fn function_show(f : FunctionVal) -> String {
 /// `Show` for values renders them exactly like Arturo's `print`
 /// (mirrors `$` in `printable.nim`).
 pub impl Show for Value with fn to_string(self) {
-  show_value(self)
-}
-
-///|
-/// Plain string rendering of a value — mirrors `$` in `printable.nim`.
-/// This is what `print` (for non-block values) and `join` use.
-pub fn show_value(v : Value) -> String {
-  match v {
+  match self {
     VNull => "null"
     VLogical(b) => if b { "true" } else { "false" }
     VInteger(i) => i.to_string()
@@ -232,15 +225,15 @@ pub fn show_value(v : Value) -> String {
     VLabel(s) => s
     VAttribute(s) => s
     VAttributeLabel(s) => s
-    VPath(p) => p.map(show_value).join("\\")
-    VPathLabel(p) => p.map(show_value).join("\\")
+    VPath(p) => p.map(Show::to_string).join("\\")
+    VPathLabel(p) => p.map(Show::to_string).join("\\")
     VSymbol(s) => s
-    VBlock(a) => "[\{a.map(show_value).join(" ")}]"
-    VInline(a) => "[\{a.map(show_value).join(" ")}]"
+    VBlock(a) => "[\{a.map(Show::to_string).join(" ")}]"
+    VInline(a) => "[\{a.map(Show::to_string).join(" ")}]"
     VDictionary(d) => {
       let items : Array[String] = []
       for k, v in d {
-        items.push("\{k}:\{show_value(v)}")
+        items.push("\{k}:\{v}")
       }
       "[\{items.join(" ")}]"
     }

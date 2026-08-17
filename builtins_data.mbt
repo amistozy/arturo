@@ -504,7 +504,7 @@ fn append_value(x : Value, y : Value) -> Value {
       match y {
         VChar(c) => VString(s + c.to_string())
         VString(t) => VString(s + t)
-        _ => VString(s + show_value(y))
+        _ => VString(s + y.to_string())
       }
     _ => x
   }
@@ -527,7 +527,7 @@ fn prepend_value(x : Value, y : Value) -> Value {
       match y {
         VChar(c) => VString(c.to_string() + s)
         VString(t) => VString(t + s)
-        _ => VString(show_value(y) + s)
+        _ => VString(y.to_string() + s)
       }
     _ => x
   }
@@ -919,7 +919,7 @@ fn sort_key(v : Value) -> String {
   match v {
     VInteger(i) => "0\{pad_num(i, 16)}"
     VFloating(f) => "0\{pad_num(f.to_int(), 16)}"
-    _ => "1\{show_value(v)}"
+    _ => "1\{v}"
   }
 }
 
@@ -1162,10 +1162,10 @@ fn b_join(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     _ => ""
   }
   match args[0] {
-    VBlock(items) => ctx.push(VString(items.map(show_value).join(sep)))
+    VBlock(items) => ctx.push(VString(items.map(Show::to_string).join(sep)))
     VRange(r) =>
-      ctx.push(VString(range_values(r, ctx).map(show_value).join(sep)))
-    _ => ctx.push(VString(show_value(args[0])))
+      ctx.push(VString(range_values(r, ctx).map(Show::to_string).join(sep)))
+    _ => ctx.push(VString(args[0].to_string()))
   }
 }
 
@@ -1249,7 +1249,7 @@ fn b_pad(ctx : Ctx, args : Array[Value]) -> Unit {
       } else {
         ctx.push(VString(s))
       }
-    _ => ctx.push(VString(show_value(args[0]).pad_start(width, fill)))
+    _ => ctx.push(VString(args[0].to_string().pad_start(width, fill)))
   }
 }
 
@@ -1510,7 +1510,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       match x {
         VString(s) => ctx.push(VString(s))
         VChar(c) => ctx.push(VString(c.to_string()))
-        _ => ctx.push(VString(show_value(x)))
+        _ => ctx.push(VString(x.to_string()))
       }
     "char" =>
       match x {

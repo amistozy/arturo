@@ -1067,7 +1067,7 @@ fn parse_block(
         let path = parse_path(p, VWord("this"))
         if peek(p, 0) == ':' {
           advance(p)
-          out.push(VLabel(path.map(show_value).join("\\")))
+          out.push(VLabel(path.map(Show::to_string).join("\\")))
         } else {
           out.push(VPath(path))
         }
