@@ -36,7 +36,7 @@ pub(all) struct RangeVal {
   infinite : Bool
   numeric : Bool
   forward : Bool
-}
+} derive(Eq)
 
 ///|
 pub(all) enum FunctionVal {
@@ -244,25 +244,12 @@ pub impl Show for Value with fn to_string(self) {
 }
 
 ///|
-/// Element-wise equality for path/block/inline arrays.
-fn eq_arrays(x : Array[Value], y : Array[Value]) -> Bool {
-  if x.length() != y.length() {
-    return false
-  }
-  for i in 0..<x.length() {
-    if !equal(x[i], y[i]) {
-      return false
-    }
-  }
-  true
-}
-
-///|
 /// Value equality — mirrors `==` in `comparison.nim`:
 /// numeric kinds compare across `:integer`/`:floating`, everything else
-/// must have the same kind and equal contents.
-pub fn equal(a : Value, b : Value) -> Bool {
-  match (a, b) {
+/// must have the same kind and equal contents. Dictionaries compare
+/// by key (order-insensitive, like the reference's `OrderedTable`).
+pub impl Eq for Value with fn equal(self, that) {
+  match (self, that) {
     (VNull, VNull) => true
     (VLogical(x), VLogical(y)) => x == y
     (VInteger(x), VInteger(y)) => x == y
@@ -276,30 +263,13 @@ pub fn equal(a : Value, b : Value) -> Bool {
     (VLabel(x), VLabel(y)) => x == y
     (VAttribute(x), VAttribute(y)) => x == y
     (VAttributeLabel(x), VAttributeLabel(y)) => x == y
-    (VPath(x), VPath(y)) => eq_arrays(x, y)
-    (VPathLabel(x), VPathLabel(y)) => eq_arrays(x, y)
+    (VPath(x), VPath(y)) => x == y
+    (VPathLabel(x), VPathLabel(y)) => x == y
     (VSymbol(x), VSymbol(y)) => x == y
-    (VBlock(x), VBlock(y)) => eq_arrays(x, y)
-    (VInline(x), VInline(y)) => eq_arrays(x, y)
-    (VDictionary(x), VDictionary(y)) => {
-      if x.length() != y.length() {
-        return false
-      }
-      for k, v in x {
-        match y.get(k) {
-          Some(v2) => if !equal(v, v2) { return false }
-          None => return false
-        }
-      }
-      true
-    }
-    (VRange(x), VRange(y)) =>
-      x.start == y.start &&
-      x.stop == y.stop &&
-      x.step == y.step &&
-      x.infinite == y.infinite &&
-      x.numeric == y.numeric &&
-      x.forward == y.forward
+    (VBlock(x), VBlock(y)) => x == y
+    (VInline(x), VInline(y)) => x == y
+    (VDictionary(x), VDictionary(y)) => x == y
+    (VRange(x), VRange(y)) => x == y
     (VType(x), VType(y)) => x == y
     _ => false
   }

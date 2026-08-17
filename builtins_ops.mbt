@@ -310,12 +310,12 @@ fn compare_strings(x : String, y : String) -> Int {
 
 ///|
 fn b_equalq(ctx : Ctx, args : Array[Value]) -> Unit {
-  ctx.push(VLogical(equal(args[0], args[1])))
+  ctx.push(VLogical(args[0] == args[1]))
 }
 
 ///|
 fn b_not_equalq(ctx : Ctx, args : Array[Value]) -> Unit {
-  ctx.push(VLogical(!equal(args[0], args[1])))
+  ctx.push(VLogical(args[0] != args[1]))
 }
 
 ///|
@@ -343,7 +343,7 @@ fn b_less_or_equalq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_sameq(ctx : Ctx, args : Array[Value]) -> Unit {
-  ctx.push(VLogical(equal(args[0], args[1])))
+  ctx.push(VLogical(args[0] == args[1]))
 }
 
 ///|

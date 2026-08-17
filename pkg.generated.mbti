@@ -12,8 +12,6 @@ pub fn block(Array[Value]) -> Value
 
 pub fn dictionary(Array[(String, Value)]) -> Value
 
-pub fn equal(Value, Value) -> Bool
-
 pub fn floating(Double) -> Value
 
 pub fn get_symbol(Env, String) -> Value?
@@ -66,7 +64,7 @@ pub(all) struct RangeVal {
   infinite : Bool
   numeric : Bool
   forward : Bool
-}
+} derive(Eq)
 
 pub(all) struct RunResult {
   value : Value
@@ -95,6 +93,7 @@ pub(all) enum Value {
   VFunction(FunctionVal)
   VType(String)
 }
+pub impl Eq for Value
 pub impl Show for Value
 
 // Type aliases

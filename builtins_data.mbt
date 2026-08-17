@@ -577,7 +577,7 @@ fn remove_value(x : Value, y : Value) -> Value {
   match x {
     VBlock(items) => {
       let idx = for i in 0..<items.length() {
-        if equal(items[i], y) {
+        if items[i] == y {
           break i
         }
       } nobreak {
@@ -621,7 +621,7 @@ fn b_index(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
     VBlock(items) => {
       let found = for i in 0..<items.length() {
-        if equal(items[i], args[1]) {
+        if items[i] == args[1] {
           break i
         }
       } nobreak {
@@ -670,7 +670,7 @@ fn b_values(ctx : Ctx, args : Array[Value]) -> Unit {
 fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VBlock(items) =>
-      ctx.push(VLogical(items.iter().any(fn(v) { equal(v, args[1]) })))
+      ctx.push(VLogical(items.iter().any(fn(v) { v == args[1] })))
     VString(s) =>
       match args[1] {
         VString(t) => ctx.push(VLogical(s.contains(t)))
@@ -684,7 +684,7 @@ fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
     VRange(r) => {
       let items = range_values(r, ctx)
-      ctx.push(VLogical(items.iter().any(fn(v) { equal(v, args[1]) })))
+      ctx.push(VLogical(items.iter().any(fn(v) { v == args[1] })))
     }
     _ => ctx.push(VLogical(false))
   }
@@ -695,8 +695,7 @@ fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_inq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let item = args[0]
   match args[1] {
-    VBlock(items) =>
-      ctx.push(VLogical(items.iter().any(fn(v) { equal(v, item) })))
+    VBlock(items) => ctx.push(VLogical(items.iter().any(fn(v) { v == item })))
     VString(s) =>
       match item {
         VChar(c) => ctx.push(VLogical(s.iter().any(fn(ch) { ch == c })))
@@ -710,7 +709,7 @@ fn b_inq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
     VRange(r) => {
       let items = range_values(r, ctx)
-      ctx.push(VLogical(items.iter().any(fn(v) { equal(v, item) })))
+      ctx.push(VLogical(items.iter().any(fn(v) { v == item })))
     }
     _ => ctx.push(VLogical(false))
   }
@@ -940,7 +939,7 @@ fn b_unique(ctx : Ctx, args : Array[Value]) -> Unit {
     VBlock(items) => {
       let out : Array[Value] = []
       for item in items {
-        if !out.iter().any(fn(v) { equal(v, item) }) {
+        if !out.iter().any(fn(v) { v == item }) {
           out.push(item)
         }
       }
@@ -1262,7 +1261,7 @@ fn b_replace(ctx : Ctx, args : Array[Value]) -> Unit {
     (VBlock(items), old, new) => {
       let out : Array[Value] = []
       for item in items {
-        if equal(item, old) {
+        if item == old {
           out.push(new)
         } else {
           out.push(item)

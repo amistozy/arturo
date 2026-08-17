@@ -156,7 +156,7 @@ fn b_case(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       let pairs = eval_block_values(blk, ctx)
       let mut i = 0
       while i + 1 < pairs.length() {
-        if equal(x, pairs[i]) {
+        if x == pairs[i] {
           match pairs[i + 1] {
             VBlock(a) => {
               eval_block(a, ctx)
