@@ -1160,7 +1160,7 @@ fn b_split(ctx : Ctx, args : Array[Value]) -> Unit {
         let parts : Array[Value] = []
         let mut current = StringBuilder()
         for c in s {
-          if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+          if " \t\n\r".contains_char(c) {
             if current.to_string() != "" {
               parts.push(VString(current.to_string()))
               current = StringBuilder()

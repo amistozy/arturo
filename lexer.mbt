@@ -213,7 +213,7 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
           advance(p)
         }
       }
-    } else if c == '\n' || c == '\r' {
+    } else if "\n\r".contains_char(c) {
       p.line = initial_line
       raise ArturoError::ParseError(
         line=p.line,
@@ -419,7 +419,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
               (peek(p, 0) >= 'A' && peek(p, 0) <= 'F')
             )
           ) ||
-          (num_base == 2 && (peek(p, 0) == '0' || peek(p, 0) == '1')) ||
+          (num_base == 2 && "01".contains_char(peek(p, 0))) ||
           (num_base == 8 && peek(p, 0) >= '0' && peek(p, 0) <= '7') {
       sb.write_char(peek(p, 0))
       advance(p)
@@ -472,18 +472,14 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     return VString(text)
   }
   // scientific notation
-  if (peek(p, 0) == 'e' || peek(p, 0) == 'E') &&
+  if "eE".contains_char(peek(p, 0)) &&
     (
       (peek(p, 1) >= '0' && peek(p, 1) <= '9') ||
-      (
-        (peek(p, 1) == '+' || peek(p, 1) == '-') &&
-        peek(p, 2) >= '0' &&
-        peek(p, 2) <= '9'
-      )
+      ("+-".contains_char(peek(p, 1)) && peek(p, 2) >= '0' && peek(p, 2) <= '9')
     ) {
     sb.write_string("e")
     advance(p)
-    if peek(p, 0) == '+' || peek(p, 0) == '-' {
+    if "+-".contains_char(peek(p, 0)) {
       sb.write_char(peek(p, 0))
       advance(p)
     }
@@ -1063,7 +1059,7 @@ fn parse_block(
       raise ArturoError::ParseError(line=p.line, message="stray `}`")
     } else if c == '«' {
       out.push(VString(parse_guillemet_string(p)))
-    } else if c == 'ø' || c == '∅' {
+    } else if "ø∅".contains_char(c) {
       advance(p)
       out.push(VSymbol("∅"))
     } else if c == '∞' {
@@ -1094,23 +1090,7 @@ fn parse_block(
       // multiline string
       advance(p)
       out.push(VString(parse_multiline_string(p)))
-    } else if c == '+' ||
-      c == '*' ||
-      c == '/' ||
-      c == '%' ||
-      c == '^' ||
-      c == '=' ||
-      c == '<' ||
-      c == '>' ||
-      c == '!' ||
-      c == '?' ||
-      c == '~' ||
-      c == '|' ||
-      c == '&' ||
-      c == '@' ||
-      c == '#' ||
-      c == '$' ||
-      c == '-' {
+    } else if "+*/%^=<>!?~|&@#$-".contains_char(c) {
       out.push(VSymbol(parse_symbol(p)))
     } else {
       // unknown character: skip it
