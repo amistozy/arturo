@@ -244,8 +244,7 @@ test "ported: parser.art" {
     #|[ :block
     #|    something? :word
     #|    anotherone? :word
-    #|    ?? :symbol
-    #|    ? :symbol
+    #|    ??? :symbol
     #|]
     #|[ :block
     #|    something? :label
