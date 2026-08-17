@@ -77,25 +77,13 @@ fn dedent_str(s : String) -> String {
     .iter()
     .filter(line => line.trim().length() > 0)
     .map(line => {
-      let mut ind = 0
-      while ind < line.length() && (line[ind] == ' ' || line[ind] == '\t') {
-        ind = ind + 1
-      }
-      ind
+      line.find_by(c => c != ' ' && c != '\t').unwrap_or(line.length())
     })
-    .fold(init=1000000, (a, b) => if b < a { b } else { a })
+    .minimum()
   let out = StringBuilder()
   for line in lines {
-    let start = if common < 1000000 {
-      if common < line.length() {
-        common
-      } else {
-        line.length()
-      }
-    } else {
-      0
-    }
-    out.write_string(line[start:].to_owned())
+    let start = if common is Some(c) { c.min(line.length()) } else { 0 }
+    out.write_stringview(line[start:])
     out.write_string("\n")
   }
   out.to_string().trim().to_owned()
@@ -116,16 +104,13 @@ fn skip(p : Parser) -> Unit {
           advance(p)
         }
       }
-      '#' =>
-        if peek(p, 1) == '!' {
+      '#' if peek(p, 1) == '!' => {
+        advance(p)
+        advance(p)
+        while !is_eof_char(peek(p, 0)) && peek(p, 0) != '\n' {
           advance(p)
-          advance(p)
-          while !is_eof_char(peek(p, 0)) && peek(p, 0) != '\n' {
-            advance(p)
-          }
-        } else {
-          break
         }
+      }
       _ => break
     }
   }
@@ -208,16 +193,16 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
           while count < 2 {
             let h = peek(p, 0)
             if h >= '0' && h <= '9' {
-              xi = xi * 16 + (h.to_int() - '0'.to_int())
+              xi = xi * 16 + (h.to_int() - '0')
             } else if h >= 'a' && h <= 'f' {
-              xi = xi * 16 + (h.to_int() - 'a'.to_int() + 10)
+              xi = xi * 16 + (h.to_int() - 'a' + 10)
             } else if h >= 'A' && h <= 'F' {
-              xi = xi * 16 + (h.to_int() - 'A'.to_int() + 10)
+              xi = xi * 16 + (h.to_int() - 'A' + 10)
             } else {
               break
             }
             advance(p)
-            count = count + 1
+            count += 1
           }
           sb.write_char(xi.unsafe_to_char())
         }
@@ -288,7 +273,7 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
         message="unterminated curly string",
       )
     } else if c == '{' {
-      curlies = curlies + 1
+      curlies += 1
       sb.write_char(c)
       advance(p)
     } else if c == '}' {
@@ -299,7 +284,7 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
         advance(p)
         break
       } else {
-        curlies = curlies - 1
+        curlies -= 1
         sb.write_char(c)
         advance(p)
       }
@@ -438,7 +423,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
           (num_base == 8 && peek(p, 0) >= '0' && peek(p, 0) <= '7') {
       sb.write_char(peek(p, 0))
       advance(p)
-      count = count + 1
+      count += 1
     }
     if count == 0 {
       raise ArturoError::ParseError(
@@ -447,7 +432,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
       )
     }
     let text = sb.to_string()
-    let digits = text[2:].to_owned()
+    let digits = text[2:]
     let value = @string.parse_int(digits, base=num_base) catch {
       _ =>
         raise ArturoError::ParseError(
@@ -464,7 +449,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     advance(p)
   }
   if peek(p, 0) == '.' && peek(p, 1) >= '0' && peek(p, 1) <= '9' {
-    dots = dots + 1
+    dots += 1
     sb.write_string(".")
     advance(p)
     while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
@@ -472,7 +457,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
       advance(p)
     }
     if peek(p, 0) == '.' && peek(p, 1) >= '0' && peek(p, 1) <= '9' {
-      dots = dots + 1
+      dots += 1
       sb.write_string(".")
       advance(p)
       while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
