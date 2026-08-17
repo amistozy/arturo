@@ -415,7 +415,7 @@ fn b_print(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VBlock(blk) => {
       let vals = eval_block_values(blk, ctx)
       for v in vals {
-        ctx.out.write_string(v.to_string())
+        ctx.out.write_object(v)
         if in_lines {
           ctx.out.write_string("\n")
         } else {
@@ -440,7 +440,7 @@ fn b_prints(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         ctx.out.write_string("\{v} ")
       }
     }
-    v => ctx.out.write_string(v.to_string())
+    v => ctx.out.write_object(v)
   }
 }
 
@@ -570,18 +570,18 @@ fn b_render(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
           code = false
           let vals = eval_code_segments(src, ctx)
           for v in vals {
-            out.write_string(v.to_string())
+            out.write_object(v)
           }
           i = i + 1
         } else {
-          codebuf.write_string(Int::unsafe_to_char(s[i].to_int()).to_string())
+          codebuf.write_char(Int::unsafe_to_char(s[i].to_int()))
           i = i + 1
         }
       } else if s[i] == '|' {
         code = true
         i = i + 1
       } else {
-        out.write_string(Int::unsafe_to_char(s[i].to_int()).to_string())
+        out.write_char(Int::unsafe_to_char(s[i].to_int()))
         i = i + 1
       }
     }

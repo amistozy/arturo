@@ -31,7 +31,7 @@ fn parser_new(src : String) -> Parser {
 
 ///|
 fn eof_char() -> Char {
-  Int::unsafe_to_char(0)
+  '\u{0}'
 }
 
 ///|
@@ -69,7 +69,7 @@ fn dedent_str(s : String) -> String {
       lines.push(current.to_string())
       current = StringBuilder()
     } else {
-      current.write_string(c.to_string())
+      current.write_char(c)
     }
   }
   lines.push(current.to_string())
@@ -156,27 +156,27 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
       let e = peek(p, 1)
       match e {
         '\\' | '"' | '\'' | '/' => {
-          sb.write_string(e.to_string())
+          sb.write_char(e)
           advance(p)
           advance(p)
         }
         'a' => {
-          sb.write_string(Int::unsafe_to_char(7).to_string())
+          sb.write_char('\u{7}')
           advance(p)
           advance(p)
         }
         'b' => {
-          sb.write_string(Int::unsafe_to_char(8).to_string())
+          sb.write_char('\b')
           advance(p)
           advance(p)
         }
         'e' => {
-          sb.write_string(Int::unsafe_to_char(27).to_string())
+          sb.write_char('\u{1b}')
           advance(p)
           advance(p)
         }
         'f' => {
-          sb.write_string(Int::unsafe_to_char(12).to_string())
+          sb.write_char('\f')
           advance(p)
           advance(p)
         }
@@ -196,7 +196,7 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
           advance(p)
         }
         'v' => {
-          sb.write_string(Int::unsafe_to_char(11).to_string())
+          sb.write_char('\u{b}')
           advance(p)
           advance(p)
         }
@@ -219,11 +219,11 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
             advance(p)
             count = count + 1
           }
-          sb.write_string(xi.unsafe_to_char().to_string())
+          sb.write_char(xi.unsafe_to_char())
         }
         _ => {
           sb.write_string("\\")
-          sb.write_string(e.to_string())
+          sb.write_char(e)
           advance(p)
           advance(p)
         }
@@ -235,7 +235,7 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
         message="newline in quoted string",
       )
     } else {
-      sb.write_string(c.to_string())
+      sb.write_char(c)
       advance(p)
     }
   }
@@ -250,7 +250,7 @@ fn parse_multiline_string(p : Parser) -> String {
     advance(p)
   }
   while !is_eof_char(peek(p, 0)) {
-    sb.write_string(peek(p, 0).to_string())
+    sb.write_char(peek(p, 0))
     advance(p)
   }
   dedent_str(sb.to_string())
@@ -289,18 +289,18 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
       )
     } else if c == '{' {
       curlies = curlies + 1
-      sb.write_string(c.to_string())
+      sb.write_char(c)
       advance(p)
     } else if c == '}' {
       if verbatim {
-        sb.write_string(c.to_string())
+        sb.write_char(c)
         advance(p)
       } else if curlies == 1 {
         advance(p)
         break
       } else {
         curlies = curlies - 1
-        sb.write_string(c.to_string())
+        sb.write_char(c)
         advance(p)
       }
     } else if c == ':' && verbatim && peek(p, 1) == '}' {
@@ -309,7 +309,7 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
       advance(p)
       break
     } else {
-      sb.write_string(c.to_string())
+      sb.write_char(c)
       advance(p)
     }
   }
@@ -346,7 +346,7 @@ fn parse_guillemet_string(p : Parser) -> String raise ArturoError {
           sb.write_string("»")
         }
       } else {
-        sb.write_string(c.to_string())
+        sb.write_char(c)
         advance(p)
       }
     }
@@ -354,7 +354,7 @@ fn parse_guillemet_string(p : Parser) -> String raise ArturoError {
   } else {
     // full-line string
     while !is_eof_char(peek(p, 0)) && peek(p, 0) != '\n' {
-      sb.write_string(peek(p, 0).to_string())
+      sb.write_char(peek(p, 0))
       advance(p)
     }
     sb.to_string().trim().to_owned()
@@ -379,12 +379,12 @@ fn is_ident_char(c : Char) -> Bool {
 fn parse_identifier(p : Parser, add_current : Bool) -> String {
   let sb = StringBuilder()
   if add_current {
-    sb.write_string(peek(p, 0).to_string())
+    sb.write_char(peek(p, 0))
   }
   advance(p)
   let initial = p.pos
   while is_ident_char(peek(p, 0)) {
-    sb.write_string(peek(p, 0).to_string())
+    sb.write_char(peek(p, 0))
     advance(p)
   }
   if peek(p, 0) == '?' && p.pos != initial {
@@ -436,7 +436,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
           ) ||
           (num_base == 2 && (peek(p, 0) == '0' || peek(p, 0) == '1')) ||
           (num_base == 8 && peek(p, 0) >= '0' && peek(p, 0) <= '7') {
-      sb.write_string(peek(p, 0).to_string())
+      sb.write_char(peek(p, 0))
       advance(p)
       count = count + 1
     }
@@ -460,7 +460,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
   // decimal
   let mut dots = 0
   while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
-    sb.write_string(peek(p, 0).to_string())
+    sb.write_char(peek(p, 0))
     advance(p)
   }
   if peek(p, 0) == '.' && peek(p, 1) >= '0' && peek(p, 1) <= '9' {
@@ -468,7 +468,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     sb.write_string(".")
     advance(p)
     while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
-      sb.write_string(peek(p, 0).to_string())
+      sb.write_char(peek(p, 0))
       advance(p)
     }
     if peek(p, 0) == '.' && peek(p, 1) >= '0' && peek(p, 1) <= '9' {
@@ -476,7 +476,7 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
       sb.write_string(".")
       advance(p)
       while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
-        sb.write_string(peek(p, 0).to_string())
+        sb.write_char(peek(p, 0))
         advance(p)
       }
     }
@@ -499,11 +499,11 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     sb.write_string("e")
     advance(p)
     if peek(p, 0) == '+' || peek(p, 0) == '-' {
-      sb.write_string(peek(p, 0).to_string())
+      sb.write_char(peek(p, 0))
       advance(p)
     }
     while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
-      sb.write_string(peek(p, 0).to_string())
+      sb.write_char(peek(p, 0))
       advance(p)
     }
     let ftext = sb.to_string()
@@ -913,11 +913,11 @@ fn parse_block(
             'n' => '\n'
             'r' => '\r'
             't' => '\t'
-            'b' => Int::unsafe_to_char(8)
-            'f' => Int::unsafe_to_char(12)
-            'v' => Int::unsafe_to_char(11)
-            'a' => Int::unsafe_to_char(7)
-            'e' => Int::unsafe_to_char(27)
+            'b' => '\b'
+            'f' => '\f'
+            'v' => '\u{b}'
+            'a' => '\u{7}'
+            'e' => '\u{1b}'
             _ => e
           }
           advance(p)
@@ -939,7 +939,7 @@ fn parse_block(
             if id.length() > 0 {
               Int::unsafe_to_char(id[0].to_int())
             } else {
-              Int::unsafe_to_char(0)
+              '\u{0}'
             },
           ),
         )

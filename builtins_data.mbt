@@ -420,7 +420,7 @@ fn arr_reverse(a : Array[Value]) -> Unit {
 fn take_string(s : String, k : Int) -> String {
   let sb = StringBuilder()
   for i = 0; i < k && i < s.length(); i = i + 1 {
-    sb.write_string(Int::unsafe_to_char(s[i].to_int()).to_string())
+    sb.write_char(Int::unsafe_to_char(s[i].to_int()))
   }
   sb.to_string()
 }
@@ -859,7 +859,7 @@ fn b_reverse(ctx : Ctx, args : Array[Value]) -> Unit {
     VString(s) => {
       let sb = StringBuilder()
       for i = s.length() - 1; i >= 0; i = i - 1 {
-        sb.write_string(Int::unsafe_to_char(s[i].to_int()).to_string())
+        sb.write_char(Int::unsafe_to_char(s[i].to_int()))
       }
       ctx.push(VString(sb.to_string()))
     }
@@ -905,7 +905,7 @@ fn b_sort(ctx : Ctx, args : Array[Value]) -> Unit {
       chars.sort_by(fn(a, b) { a.compare(b) })
       let sb = StringBuilder()
       for c in chars {
-        sb.write_string(c.to_string())
+        sb.write_char(c)
       }
       ctx.push(VString(sb.to_string()))
     }
@@ -1186,7 +1186,7 @@ fn b_split(ctx : Ctx, args : Array[Value]) -> Unit {
               current = StringBuilder()
             }
           } else {
-            current.write_string(c.to_string())
+            current.write_char(c)
           }
         }
         if current.to_string() != "" {
