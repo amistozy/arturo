@@ -182,14 +182,14 @@ fn range_show(r : RangeVal) -> String {
   let start = if r.numeric {
     r.start.to_string()
   } else {
-    "'\{(r.start.unsafe_to_char())}'"
+    "'\{r.start.unsafe_to_char()}'"
   }
   let stop = if r.infinite {
     "∞"
   } else if r.numeric {
     r.stop.to_string()
   } else {
-    "'\{(r.stop.unsafe_to_char())}'"
+    "'\{r.stop.unsafe_to_char()}'"
   }
   let mut res = "\{start}..\{stop}"
   if r.step != 1 {
