@@ -82,11 +82,7 @@ pub fn block(items : Array[Value]) -> Value {
 /// order; later pairs with a duplicate key overwrite earlier ones
 /// (like the reference's `OrderedTable`).
 pub fn dictionary(items : Array[(String, Value)]) -> Value {
-  let m : Map[String, Value] = Map([])
-  for kv in items {
-    m[kv.0] = kv.1
-  }
-  VDictionary(m)
+  VDictionary(Map(items))
 }
 
 ///|
