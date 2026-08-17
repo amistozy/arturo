@@ -350,7 +350,7 @@ fn b_size(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     _ =>
       raise rt_err(
         ctx,
-        "wrong argument type: expected collection, got " + type_name(args[0]),
+        "wrong argument type: expected collection, got \{type_name(args[0])}",
       )
   }
 }
@@ -953,9 +953,9 @@ fn b_sort(ctx : Ctx, args : Array[Value]) -> Unit {
 ///|
 fn sort_key(v : Value) -> String {
   match v {
-    VInteger(i) => "0" + pad_num(i, 16)
-    VFloating(f) => "0" + pad_num(f.to_int(), 16)
-    _ => "1" + show_value(v)
+    VInteger(i) => "0\{pad_num(i, 16)}"
+    VFloating(f) => "0\{pad_num(f.to_int(), 16)}"
+    _ => "1\{show_value(v)}"
   }
 }
 
@@ -1521,7 +1521,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
             ctx.push(VInteger(0))
           } else {
             let v = @string.parse_int(t) catch {
-              _ => raise rt_err(ctx, "cannot convert to :integer: " + s)
+              _ => raise rt_err(ctx, "cannot convert to :integer: \{s}")
             }
             ctx.push(VInteger(v))
           }
@@ -1542,7 +1542,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         VFloating(f) => ctx.push(VFloating(f))
         VString(s) => {
           let v = @string.parse_double(s.trim()) catch {
-            _ => raise rt_err(ctx, "cannot convert to :floating: " + s)
+            _ => raise rt_err(ctx, "cannot convert to :floating: \{s}")
           }
           ctx.push(VFloating(v))
         }
@@ -1616,7 +1616,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         _ => raise rt_err(ctx, "cannot convert to :range")
       }
     "type" => ctx.push(VType(type_name(x)))
-    _ => raise rt_err(ctx, "unknown target type: :" + target)
+    _ => raise rt_err(ctx, "unknown target type: :\{target}")
   }
 }
 

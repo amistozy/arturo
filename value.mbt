@@ -172,7 +172,7 @@ fn float_show(f : Double) -> String {
   }
   let s = f.to_string()
   if f == f.floor() && f.abs() < 1000000000000000.0 {
-    return s + ".0"
+    return "\{s}.0"
   }
   s
 }
@@ -182,18 +182,18 @@ fn range_show(r : RangeVal) -> String {
   let start = if r.numeric {
     r.start.to_string()
   } else {
-    "'" + r.start.unsafe_to_char().to_string() + "'"
+    "'\{(r.start.unsafe_to_char().to_string())}'"
   }
   let stop = if r.infinite {
     "∞"
   } else if r.numeric {
     r.stop.to_string()
   } else {
-    "'" + r.stop.unsafe_to_char().to_string() + "'"
+    "'\{(r.stop.unsafe_to_char().to_string())}'"
   }
-  let mut res = start + ".." + stop
+  let mut res = "\{start}..\{stop}"
   if r.step != 1 {
-    res = res + " (" + r.step.to_string() + ")"
+    res = "\{res} (\{r.step})"
   }
   res
 }
@@ -203,9 +203,8 @@ fn range_show(r : RangeVal) -> String {
 /// we omit the address, which is not reproducible).
 fn function_show(f : FunctionVal) -> String {
   match f {
-    UserFunction(params~, main=_, inline=_) =>
-      "<function>[" + params.join(" ") + "]"
-    BuiltinFunction(name~) => "<function:builtin:" + name + ">"
+    UserFunction(params~, main=_, inline=_) => "<function>[\{params.join(" ")}]"
+    BuiltinFunction(name~) => "<function:builtin:\{name}>"
   }
 }
 
@@ -235,18 +234,18 @@ pub fn show_value(v : Value) -> String {
     VPath(p) => p.map(show_value).join("\\")
     VPathLabel(p) => p.map(show_value).join("\\")
     VSymbol(s) => s
-    VBlock(a) => "[" + a.map(show_value).join(" ") + "]"
-    VInline(a) => "[" + a.map(show_value).join(" ") + "]"
+    VBlock(a) => "[\{a.map(show_value).join(" ")}]"
+    VInline(a) => "[\{a.map(show_value).join(" ")}]"
     VDictionary(d) => {
       let items : Array[String] = []
       for k, v in d {
-        items.push(k + ":" + show_value(v))
+        items.push("\{k}:\{show_value(v)}")
       }
-      "[" + items.join(" ") + "]"
+      "[\{items.join(" ")}]"
     }
     VRange(r) => range_show(r)
     VFunction(f) => function_show(f)
-    VType(t) => ":" + t
+    VType(t) => ":\{t}"
   }
 }
 

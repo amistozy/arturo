@@ -12,7 +12,7 @@ fn num_args(
     None =>
       raise rt_err(
         ctx,
-        "wrong argument type: expected number, got " + type_name(args[0]),
+        "wrong argument type: expected number, got \{type_name(args[0])}",
       )
   }
   let b = match as_float(args[1]) {
@@ -20,7 +20,7 @@ fn num_args(
     None =>
       raise rt_err(
         ctx,
-        "wrong argument type: expected number, got " + type_name(args[1]),
+        "wrong argument type: expected number, got \{type_name(args[1])}",
       )
   }
   (a, b)
@@ -33,7 +33,7 @@ fn int_args(ctx : Ctx, args : Array[Value]) -> (Int, Int) raise ArturoError {
     None =>
       raise rt_err(
         ctx,
-        "wrong argument type: expected integer, got " + type_name(args[0]),
+        "wrong argument type: expected integer, got \{type_name(args[0])}",
       )
   }
   let b = match as_int(args[1]) {
@@ -41,7 +41,7 @@ fn int_args(ctx : Ctx, args : Array[Value]) -> (Int, Int) raise ArturoError {
     None =>
       raise rt_err(
         ctx,
-        "wrong argument type: expected integer, got " + type_name(args[1]),
+        "wrong argument type: expected integer, got \{type_name(args[1])}",
       )
   }
   (a, b)
@@ -238,7 +238,7 @@ fn b_neg(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     _ =>
       raise rt_err(
         ctx,
-        "wrong argument type: expected number, got " + type_name(args[0]),
+        "wrong argument type: expected number, got \{type_name(args[0])}",
       )
   }
 }
@@ -291,7 +291,7 @@ fn cmp_values(ctx : Ctx, a : Value, b : Value) -> Int raise ArturoError {
         _ =>
           raise rt_err(
             ctx,
-            "cannot compare " + type_name(a) + " with " + type_name(b),
+            "cannot compare \{type_name(a)} with \{type_name(b)}",
           )
       }
   }

@@ -281,7 +281,7 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
             ctx.push(v)
             eval_infix_tail(blk, i + 1, ctx)
           }
-          None => raise rt_err(ctx, "cannot resolve requested value: " + w)
+          None => raise rt_err(ctx, "cannot resolve requested value: \{w}")
         }
       }
     VLabel(name) => {
@@ -317,7 +317,7 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
       let v = match fetch_path(parts, ctx) {
         Some(x) => x
         None =>
-          raise rt_err(ctx, "cannot resolve path: " + show_value(VPath(parts)))
+          raise rt_err(ctx, "cannot resolve path: \{show_value(VPath(parts))}")
       }
       ctx.push(v)
       eval_infix_tail(blk, i + 1, ctx)
@@ -342,7 +342,7 @@ fn eval_infix_tail(
             let fun = match ctx.env.get(name) {
               Some(x) => x
               None =>
-                raise rt_err(ctx, "cannot resolve requested value: " + name)
+                raise rt_err(ctx, "cannot resolve requested value: \{name}")
             }
             let arity = fun_arity(fun)
             let saved = ctx.pending_attrs.val
@@ -352,7 +352,7 @@ fn eval_infix_tail(
             let mut consumed = 0
             while consumed < to_consume {
               if idx >= blk.length() {
-                raise rt_err(ctx, "not enough arguments for operator " + s)
+                raise rt_err(ctx, "not enough arguments for operator \{s}")
               }
               if blk[idx] is VAttribute(_) || blk[idx] is VAttributeLabel(_) {
                 // attributes attach to the call without consuming a slot
@@ -462,14 +462,14 @@ fn form_call_by_name(
 ) -> Int raise ArturoError {
   let fun = match ctx.env.get(name) {
     Some(x) => x
-    None => raise rt_err(ctx, "cannot resolve requested value: " + name)
+    None => raise rt_err(ctx, "cannot resolve requested value: \{name}")
   }
   match fun {
     VFunction(_) => ()
     _ =>
       raise rt_err(
         ctx,
-        "cannot call a value of type " + type_name(fun) + ": " + name,
+        "cannot call a value of type \{type_name(fun)}: \{name}",
       )
   }
   let arity = fun_arity(fun)
@@ -480,7 +480,7 @@ fn form_call_by_name(
   let mut consumed = 0
   while consumed < to_consume {
     if idx >= blk.length() {
-      raise rt_err(ctx, "not enough arguments for " + name)
+      raise rt_err(ctx, "not enough arguments for \{name}")
     }
     if blk[idx] is VAttribute(_) || blk[idx] is VAttributeLabel(_) {
       // attributes attach to the call without consuming a slot
@@ -525,10 +525,7 @@ fn invoke(
       ctx.current_attrs.val = saved
     }
     _ =>
-      raise rt_err(
-        ctx,
-        "cannot call value of type " + type_name(fun) + ": " + name,
-      )
+      raise rt_err(ctx, "cannot call value of type \{type_name(fun)}: \{name}")
   }
 }
 
@@ -642,7 +639,7 @@ fn set_path(
   }
   let base = match ctx.env.get(base_name) {
     Some(x) => x
-    None => raise rt_err(ctx, "cannot resolve path: " + base_name)
+    None => raise rt_err(ctx, "cannot resolve path: \{base_name}")
   }
   if parts.length() > 2 {
     raise rt_err(ctx, "nested path assignment is not supported in this subset")
@@ -900,7 +897,7 @@ fn collect_thick_arrow(
           let args : Array[String] = []
           let sub : Array[Value] = [VWord(w)]
           for j in 0..<n {
-            let name = "_" + j.to_string()
+            let name = "_\{j}"
             args.push(name)
             sub.push(VWord(name))
           }
@@ -916,7 +913,7 @@ fn collect_thick_arrow(
 fn replace_ampersands(v : Value, names : Ref[Array[String]]) -> Value {
   match v {
     VSymbol(s) if s == "&" => {
-      let name = "_" + names.val.length().to_string()
+      let name = "_\{names.val.length()}"
       names.val.push(name)
       VWord(name)
     }

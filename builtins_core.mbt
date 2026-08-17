@@ -391,7 +391,7 @@ fn b_ensure(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VBlock(blk) => {
       let v = eval_block_last(blk, ctx)
       if !is_truthy(v) {
-        raise rt_err(ctx, "assertion failed: " + show_value(VBlock(blk)))
+        raise rt_err(ctx, "assertion failed: \{show_value(VBlock(blk))}")
       }
     }
     _ => ()
@@ -435,7 +435,7 @@ fn b_print(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         ctx.out.write_string("\n")
       }
     }
-    v => ctx.out.write_string(show_value(v) + "\n")
+    v => ctx.out.write_string("\{show_value(v)}\n")
   }
 }
 
@@ -446,7 +446,7 @@ fn b_prints(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VBlock(blk) => {
       let vals = eval_block_values(blk, ctx)
       for v in vals {
-        ctx.out.write_string(show_value(v) + " ")
+        ctx.out.write_string("\{show_value(v)} ")
       }
     }
     v => ctx.out.write_string(show_value(v))
@@ -512,7 +512,7 @@ fn inspect_value(
       let entries = d.iter().to_array()
       for i in 0..<entries.length() {
         indent(out, level + 1)
-        out.write_string(entries[i].0 + ": ")
+        out.write_string("\{entries[i].0}: ")
         inspect_value(entries[i].1, level + 1, false, out)
         if i != entries.length() - 1 {
           out.write_string("\n")
@@ -524,8 +524,8 @@ fn inspect_value(
       indent(out, level)
       out.write_string("]")
     }
-    VFunction(_) => out.write_string(show_value(v) + " :function")
-    _ => out.write_string(show_value(v) + " :" + type_name(v))
+    VFunction(_) => out.write_string("\{show_value(v)} :function")
+    _ => out.write_string("\{show_value(v)} :\{type_name(v)}")
   }
 }
 
@@ -543,17 +543,16 @@ fn b_render(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let is_template = attr_has(ctx.current_attrs.val, "template")
   let out = StringBuilder()
   if is_template {
-    let code = "««" +
+    let rewritten = str_replace_all(
       str_replace_all(
-        str_replace_all(
-          str_replace_all(s, "<||=", "<|| to :string "),
-          "||>",
-          "««",
-        ),
-        "<||",
-        "»»",
-      ) +
-      "»»"
+        str_replace_all(s, "<||=", "<|| to :string "),
+        "||>",
+        "««",
+      ),
+      "<||",
+      "»»",
+    )
+    let code = "««\{rewritten}»»"
     let parsed = parse(code) catch {
       _ => {
         ctx.push(VString(""))
