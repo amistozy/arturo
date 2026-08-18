@@ -180,7 +180,7 @@ fn fun_arity(fun : Value) -> Int {
 ///|
 /// Evaluate a whole block (statement by statement).
 fn eval_block(blk : ArrayView[Value], ctx : Ctx) -> Unit raise ArturoError {
-  for rest = blk; !rest.is_empty(); rest = eval_statement(rest, ctx) {
+  for rest = blk; rest is [_, ..]; rest = eval_statement(rest, ctx) {
 
   }
 }
@@ -193,22 +193,19 @@ fn eval_statement(
   blk : ArrayView[Value],
   ctx : Ctx,
 ) -> ArrayView[Value] raise ArturoError {
-  let mut rest = eval_expr(blk, ctx)
-  while !rest.is_empty() && rest[0] is VSymbol(s) && s == "|" {
-    rest = rest[1:]
-    if rest.is_empty() {
-      break
-    }
-    match rest[0] {
-      VWord(_) => rest = form_call(rest, ctx, true)
+  for rest = eval_expr(blk, ctx); rest is [VSymbol("|"), .. rest]; {
+    guard rest is [value, .. rest] else { break [] }
+    match value {
+      VWord(w) => continue form_call_by_name(rest, ctx, w, piped=true)
       _ => {
         // unresolved pipe: push the symbol itself as a constant
         ctx.push(VSymbol("|"))
-        rest = rest[1:]
+        continue rest
       }
     }
+  } nobreak {
+    rest
   }
-  rest
 }
 
 ///|
@@ -218,115 +215,112 @@ fn eval_expr(
   blk : ArrayView[Value],
   ctx : Ctx,
 ) -> ArrayView[Value] raise ArturoError {
-  match blk {
-    [] => raise RuntimeError(message="evaluation reached the end of the block")
-    [item, .. rest] =>
-      match item {
-        VNull
-        | VLogical(_)
-        | VInteger(_)
-        | VFloating(_)
-        | VChar(_)
-        | VString(_)
-        | VType(_)
-        | VLiteral(_)
-        | VBlock(_)
-        | VDictionary(_)
-        | VRange(_)
-        | VFunction(_) => {
-          ctx.push(item)
-          eval_infix_tail(rest, ctx)
-        }
-        VInline(inner) => {
-          eval_block(inner[:], ctx)
-          eval_infix_tail(rest, ctx)
-        }
-        VSymbol(s) => eval_symbol(blk, ctx, s)
-        VWord(w) =>
-          if w == "true" {
-            ctx.push(VLogical(true))
+  guard blk is [item, .. rest] else {
+    raise RuntimeError(message="evaluation reached the end of the block")
+  }
+  match item {
+    VNull
+    | VLogical(_)
+    | VInteger(_)
+    | VFloating(_)
+    | VChar(_)
+    | VString(_)
+    | VType(_)
+    | VLiteral(_)
+    | VBlock(_)
+    | VDictionary(_)
+    | VRange(_)
+    | VFunction(_) => {
+      ctx.push(item)
+      eval_infix_tail(rest, ctx)
+    }
+    VInline(inner) => {
+      eval_block(inner[:], ctx)
+      eval_infix_tail(rest, ctx)
+    }
+    VSymbol(s) => eval_symbol(blk, ctx, s)
+    VWord(w) =>
+      if w == "true" {
+        ctx.push(VLogical(true))
+        eval_infix_tail(rest, ctx)
+      } else if w == "false" {
+        ctx.push(VLogical(false))
+        eval_infix_tail(rest, ctx)
+      } else {
+        match ctx.env.get(w) {
+          Some(VFunction(_)) => form_call(blk, ctx, false)
+          Some(v) => {
+            ctx.push(v)
             eval_infix_tail(rest, ctx)
-          } else if w == "false" {
-            ctx.push(VLogical(false))
-            eval_infix_tail(rest, ctx)
-          } else {
-            match ctx.env.get(w) {
-              Some(VFunction(_)) => form_call(blk, ctx, false)
-              Some(v) => {
-                ctx.push(v)
-                eval_infix_tail(rest, ctx)
-              }
-              None =>
-                raise RuntimeError(
-                  message="cannot resolve requested value: \{w}",
-                )
-            }
           }
-        VLabel(name) =>
-          // store: its value is a full statement (pipes allowed);
-          // a trailing label (nothing after `:`) stores null
-          match rest {
-            [] => {
-              ctx.env.set(name, VNull)
-              []
-            }
-            _ => {
-              let rest2 = eval_statement(rest, ctx)
-              let v = ctx.pop_or_null()
-              ctx.env.set(name, v)
-              rest2
-            }
-          }
-        VPathLabel(parts) =>
-          match rest {
-            [] => {
-              set_path(parts, VNull, ctx)
-              []
-            }
-            _ => {
-              let rest2 = eval_statement(rest, ctx)
-              let v = ctx.pop_or_null()
-              set_path(parts, v, ctx)
-              rest2
-            }
-          }
-        VAttribute(name) => {
-          match ctx.pending_attrs {
-            Some(attrs) => attrs.push((name, VLogical(true)))
-            None => ()
-          }
-          eval_infix_tail(rest, ctx)
-        }
-        VAttributeLabel(name) =>
-          match rest {
-            [] => {
-              // a trailing attribute-label records null
-              match ctx.pending_attrs {
-                Some(attrs) => attrs.push((name, VNull))
-                None => ()
-              }
-              []
-            }
-            _ => {
-              let rest2 = eval_expr(rest, ctx)
-              let v = ctx.pop_or_null()
-              match ctx.pending_attrs {
-                Some(attrs) => attrs.push((name, v))
-                None => ()
-              }
-              eval_infix_tail(rest2, ctx)
-            }
-          }
-        VPath(parts) => {
-          let v = match fetch_path(parts, ctx) {
-            Some(x) => x
-            None =>
-              raise RuntimeError(message="cannot resolve path: \{VPath(parts)}")
-          }
-          ctx.push(v)
-          eval_infix_tail(rest, ctx)
+          None =>
+            raise RuntimeError(message="cannot resolve requested value: \{w}")
         }
       }
+    VLabel(name) =>
+      // store: its value is a full statement (pipes allowed);
+      // a trailing label (nothing after `:`) stores null
+      match rest {
+        [] => {
+          ctx.env.set(name, VNull)
+          []
+        }
+        _ => {
+          let rest2 = eval_statement(rest, ctx)
+          let v = ctx.pop_or_null()
+          ctx.env.set(name, v)
+          rest2
+        }
+      }
+    VPathLabel(parts) =>
+      match rest {
+        [] => {
+          set_path(parts, VNull, ctx)
+          []
+        }
+        _ => {
+          let rest2 = eval_statement(rest, ctx)
+          let v = ctx.pop_or_null()
+          set_path(parts, v, ctx)
+          rest2
+        }
+      }
+    VAttribute(name) => {
+      match ctx.pending_attrs {
+        Some(attrs) => attrs.push((name, VLogical(true)))
+        None => ()
+      }
+      eval_infix_tail(rest, ctx)
+    }
+    VAttributeLabel(name) =>
+      match rest {
+        [] => {
+          // a trailing attribute-label records null
+          match ctx.pending_attrs {
+            Some(attrs) => attrs.push((name, VNull))
+            None => ()
+          }
+          []
+        }
+        _ => {
+          let rest2 = eval_expr(rest, ctx)
+          let v = ctx.pop_or_null()
+          match ctx.pending_attrs {
+            Some(attrs) => attrs.push((name, v))
+            None => ()
+          }
+          eval_infix_tail(rest2, ctx)
+        }
+      }
+    VPath(parts) => {
+      let v = match fetch_path(parts, ctx) {
+        Some(x) => x
+        None =>
+          raise RuntimeError(message="cannot resolve path: \{VPath(parts)}")
+      }
+      ctx.push(v)
+      eval_infix_tail(rest, ctx)
+    }
   }
 }
 
@@ -338,51 +332,32 @@ fn eval_infix_tail(
   blk : ArrayView[Value],
   ctx : Ctx,
 ) -> ArrayView[Value] raise ArturoError {
-  match blk {
-    [VSymbol(s), .. rest] =>
-      match alias_lookup(s) {
-        Some((InfixPrec, name)) => {
-          let fun = match ctx.env.get(name) {
-            Some(x) => x
-            None =>
-              raise RuntimeError(
-                message="cannot resolve requested value: \{name}",
-              )
-          }
-          let arity = fun_arity(fun)
-          let saved = ctx.pending_attrs
-          ctx.pending_attrs = Some([])
-          let mut args_rest = rest
-          let to_consume = arity - 1
-          let mut consumed = 0
-          while consumed < to_consume {
-            match args_rest {
-              [] =>
-                raise RuntimeError(
-                  message="not enough arguments for operator \{s}",
-                )
-              [VAttribute(_) | VAttributeLabel(_), ..] =>
-                // attributes attach to the call without consuming a slot
-                args_rest = eval_expr(args_rest, ctx)
-              _ => {
-                args_rest = eval_expr(args_rest, ctx)
-                consumed = consumed + 1
-              }
-            }
-          }
-          let attrs = match ctx.pending_attrs {
-            Some(x) => x
-            None => []
-          }
-          ctx.pending_attrs = saved
-          let args = ctx.pop_args(arity)
-          invoke(fun, args, ctx, s, attrs~)
-          args_rest
-        }
-        _ => blk
-      }
-    _ => blk
+  guard blk is [VSymbol(s), .. rest] else { blk }
+  guard alias_lookup(s) is Some((InfixPrec, name)) else { blk }
+  let fun = match ctx.env.get(name) {
+    Some(x) => x
+    None =>
+      raise RuntimeError(message="cannot resolve requested value: \{name}")
   }
+  let arity = fun_arity(fun)
+  let saved = ctx.pending_attrs
+  ctx.pending_attrs = Some([])
+  let args_rest = for args_rest = rest, consumed = 0; consumed < arity - 1; {
+    match args_rest {
+      [] => raise RuntimeError(message="not enough arguments for operator \{s}")
+      [VAttribute(_) | VAttributeLabel(_), ..] =>
+        // attributes attach to the call without consuming a slot
+        continue eval_expr(args_rest, ctx), consumed
+      [_, ..] => continue eval_expr(args_rest, ctx), consumed + 1
+    }
+  } nobreak {
+    args_rest
+  }
+  let attrs = ctx.pending_attrs.unwrap_or([])
+  ctx.pending_attrs = saved
+  let args = ctx.pop_args(arity)
+  invoke(fun, args, ctx, s, attrs~)
+  args_rest
 }
 
 ///|
@@ -475,20 +450,17 @@ fn form_call_by_name(
   let arity = fun_arity(fun)
   let saved = ctx.pending_attrs
   ctx.pending_attrs = Some([])
-  let mut rest = blk
   let to_consume = if piped { arity - 1 } else { arity }
-  let mut consumed = 0
-  while consumed < to_consume {
+  let rest = for rest = blk, consumed = 0; consumed < to_consume; {
     match rest {
       [] => raise RuntimeError(message="not enough arguments for \{name}")
       [VAttribute(_) | VAttributeLabel(_), ..] =>
         // attributes attach to the call without consuming a slot
-        rest = eval_expr(rest, ctx)
-      _ => {
-        rest = eval_expr(rest, ctx)
-        consumed = consumed + 1
-      }
+        continue eval_expr(rest, ctx), consumed
+      [_, ..] => continue eval_expr(rest, ctx), consumed + 1
     }
+  } nobreak {
+    rest
   }
   let attrs = match ctx.pending_attrs {
     Some(x) => x
@@ -980,21 +952,38 @@ fn exec_dictionary(
   ctx : Ctx,
 ) -> Map[String, Value] raise ArturoError {
   let out : Map[String, Value] = Map([])
-  let mut rest = blk
-  while !rest.is_empty() {
+  for rest = blk; rest is [_, ..]; {
     match rest[0] {
       VLabel(name) => {
-        rest = eval_statement(rest[1:], ctx)
+        let rest2 = eval_statement(rest[1:], ctx)
         let v = ctx.pop_or_null()
         out[name] = v
+        continue rest2
       }
       _ => {
-        rest = eval_statement(rest, ctx)
+        let rest2 = eval_statement(rest, ctx)
         ignore(ctx.stack.pop())
+        continue rest2
       }
     }
+  } nobreak {
+    ()
   }
   out
+  // let mut rest = blk
+  // while !rest.is_empty() {
+  //   match rest[0] {
+  //     VLabel(name) => {
+  //       rest = eval_statement(rest[1:], ctx)
+  //       let v = ctx.pop_or_null()
+  //       out[name] = v
+  //     }
+  //     _ => {
+  //       rest = eval_statement(rest, ctx)
+  //       ignore(ctx.stack.pop())
+  //     }
+  //   }
+  // }
 }
 
 ///|
