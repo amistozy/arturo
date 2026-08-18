@@ -286,14 +286,14 @@ test "ported: templates.art" {
     #|print ~"x: |x|"
     #|print render "x: |x|"
     #|
-    #|print ~.template "x: <||= x ||>"
-    #|print render.template "x: <||= x ||>"
+    #|print ~.template "x: <|= x |>"
+    #|print render.template "x: <|= x |>"
     #|
     #|print render.template {
     #|    rendering the template
-    #|    x: <||= x ||>
-    #|    <|| switch x>1 [ ||>Yep, x is greater than 1
-    #|    <||] [ ||>Nope it's not.<||]||>
+    #|    x: <|= x |>
+    #|    <| switch x>1 [ |>Yep, x is greater than 1
+    #|    <|] [ |>Nope it's not.<|]|>
     #|}
     #|
   let expected =
@@ -318,9 +318,6 @@ test "ported: strings.art" {
     #|a: "Hello world"
     #|print enpiped a
     #|
-    #|b: « Hello world
-    #|print enpiped b
-    #|
     #|c: {
     #|    Hello 
     #|    world
@@ -335,29 +332,7 @@ test "ported: strings.art" {
     #|
     #|print enpiped d
     #|
-    #|e: {!md
-    #|    # Hello world!
-    #|}
-    #|
-    #|print enpiped e
-    #|
-    #|f: ««
-    #|This
-    #|    is
-    #|        a very
-    #|    safe
-    #|string»»
-    #|
-    #|print enpiped f
-    #|
-    #|print
-    #|---------------
-    #|This is a very long string
-    #|    until the end of the
-    #|        file
-    #|
   let expected =
-    #||Hello world|
     #||Hello world|
     #||Hello 
     #|world|
@@ -365,16 +340,6 @@ test "ported: strings.art" {
     #|    Hello
     #|    world
     #||
-    #||# Hello world!|
-    #||
-    #|This
-    #|    is
-    #|        a very
-    #|    safe
-    #|string|
-    #|This is a very long string
-    #|    until the end of the
-    #|        file
     #|
   check_arturo(src, expected)
 }

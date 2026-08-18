@@ -522,10 +522,10 @@ fn inspect_value(
 
 ///|
 /// `render string` (also `~`) — interpolate `|...|` code segments.
-/// The `.template` attribute switches to the `<|| ... ||>` syntax
+/// The `.template` attribute switches to the `<| ... |>` syntax
 /// (following the reference implementation: the template is rewritten
-/// into a `««...»»` code string, evaluated, and all resulting strings
-/// are concatenated).
+/// into a `{:...:}` verbatim-string code, evaluated, and all resulting
+/// strings are concatenated).
 fn b_render(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let s = match args[0] {
     VString(s) => s
@@ -535,10 +535,10 @@ fn b_render(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let out = StringBuilder()
   if is_template {
     let rewritten = s
-      .replace_all(old="<||=", new="<|| to :string ")
-      .replace_all(old="||>", new="««")
-      .replace_all(old="<||", new="»»")
-    let code = "««\{rewritten}»»"
+      .replace_all(old="<|=", new="<| to :string ")
+      .replace_all(old="|>", new="{:")
+      .replace_all(old="<|", new=":}")
+    let code = "{:\{rewritten}:}"
     let parsed = parse(code) catch {
       _ => {
         ctx.push(VString(""))

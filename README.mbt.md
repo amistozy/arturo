@@ -54,9 +54,8 @@ test {
   with `.with: 'i` indices and literal/block parameter lists.
 - Pipes: `1..10 | map 'x -> x * 2 | print`.
 - Dictionaries: `#[key: value ...]`, path access `d\key`, `d\key: value`.
-- Strings: `"..."`, `{...}` (dedented), `{:...:}` verbatim, `«...»`
-  full-line, `««...»»` safe, `---` multiline, `~"|expr|"` interpolation and
-  `render.template` with `<|| ... ||>`.
+- Strings: `"..."`, `{...}` (dedented), `{:...:}` verbatim, `~"|expr|"`
+  interpolation and `render.template` with `<| ... |>`..
 - `inspect` produces the reference dump format (`[ :block ... ]`).
 
 ### Builtins (subset)

@@ -228,39 +228,16 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
 }
 
 ///|
-/// --- multiline string: everything until end of input.
-fn parse_multiline_string(p : Parser) -> String {
-  let sb = StringBuilder()
-  while peek(p, 0) == '-' {
-    advance(p)
-  }
-  while !is_eof_char(peek(p, 0)) {
-    sb.write_char(peek(p, 0))
-    advance(p)
-  }
-  dedent_str(sb.to_string())
-}
-
-///|
 /// `{...}` curly string / `{:...}` verbatim string.
 /// (The regex form `{/.../}` is parsed as a plain string in this subset.)
 fn parse_curly_string(p : Parser) -> String raise ArturoError {
   let sb = StringBuilder()
   advance(p) // '{'
-  let verbatim = match peek(p, 0) {
-    ':' => {
-      advance(p)
-      true
-    }
-    '!' => {
-      // tag: {!md ...} — skip the tag letters
-      advance(p)
-      while is_ident_start(peek(p, 0)) {
-        advance(p)
-      }
-      false
-    }
-    _ => false
+  let verbatim = if peek(p, 0) == ':' {
+    advance(p)
+    true
+  } else {
+    false
   }
   let initial_line = p.line
   let mut curlies = 1
@@ -302,47 +279,6 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
     sb.to_string()
   } else {
     dedent_str(sb.to_string())
-  }
-}
-
-///|
-/// «...» full-line / safe string.
-fn parse_guillemet_string(p : Parser) -> String raise ArturoError {
-  let sb = StringBuilder()
-  advance(p) // «
-  if peek(p, 0) == '«' {
-    // safe string: read until »»
-    advance(p)
-    let initial_line = p.line
-    while true {
-      let c = peek(p, 0)
-      if is_eof_char(c) {
-        p.line = initial_line
-        raise ArturoError::ParseError(
-          line=p.line,
-          message="unterminated string",
-        )
-      } else if c == '»' {
-        advance(p)
-        if peek(p, 0) == '»' {
-          advance(p)
-          break
-        } else {
-          sb.write_string("»")
-        }
-      } else {
-        sb.write_char(c)
-        advance(p)
-      }
-    }
-    sb.to_string()
-  } else {
-    // full-line string
-    while !is_eof_char(peek(p, 0)) && peek(p, 0) != '\n' {
-      sb.write_char(peek(p, 0))
-      advance(p)
-    }
-    sb.to_string().trim().to_owned()
   }
 }
 
@@ -778,8 +714,6 @@ fn parse_block(
       }
     } else if c == '}' {
       raise ArturoError::ParseError(line=p.line, message="stray `}`")
-    } else if c == '«' {
-      out.push(VString(parse_guillemet_string(p)))
     } else if "ø∅".contains_char(c) {
       advance(p)
       out.push(VSymbol("∅"))
@@ -807,10 +741,6 @@ fn parse_block(
     } else if c == '∏' {
       advance(p)
       out.push(VSymbol("∏"))
-    } else if c == '-' && peek(p, 1) == '-' && peek(p, 2) == '-' {
-      // multiline string
-      advance(p)
-      out.push(VString(parse_multiline_string(p)))
     } else if "+*/%^=<>!?~|&@#$-".contains_char(c) {
       out.push(VSymbol(parse_symbol(p)))
     } else {
