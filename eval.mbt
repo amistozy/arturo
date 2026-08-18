@@ -672,15 +672,13 @@ fn collect_arrow(
   let mut rest = blk
   let mut open = 0 // open argument/pipe slots
   let mut done = false
-  while !rest.is_empty() && !done {
-    let item = rest[0]
-    let after = rest[1:]
+  while rest is [item, .. after] && !done {
     match item {
       VSymbol(s) if s == "->" => {
         let (sub, nxt) = collect_arrow(after, ctx)
         body.push(VBlock(sub))
         if open > 0 {
-          open = open - 1
+          open -= 1
         }
         rest = nxt
       }
@@ -689,13 +687,13 @@ fn collect_arrow(
         body.push(params)
         body.push(VBlock(sub))
         if open > 0 {
-          open = open - 1
+          open -= 1
         }
         rest = nxt
       }
       VSymbol(s) if s == "|" => {
         body.push(item)
-        open = open + 1
+        open += 1
         rest = after
       }
       VWord(w) => {
@@ -710,14 +708,14 @@ fn collect_arrow(
                     body.push(after[0])
                     let n = fun_arity(ctx.env.get(name).unwrap_or(VNull))
                     if open > 0 {
-                      open = open - 1
+                      open -= 1
                     }
-                    open = open + n - 1
+                    open += n - 1
                     rest = after[1:]
                   }
                   _ => {
                     if open > 0 {
-                      open = open - 1
+                      open -= 1
                     } else {
                       done = true
                     }
@@ -726,7 +724,7 @@ fn collect_arrow(
                 }
               _ => {
                 if open > 0 {
-                  open = open - 1
+                  open -= 1
                 } else {
                   done = true
                 }
@@ -734,7 +732,7 @@ fn collect_arrow(
               }
             }
           } else if open > 0 {
-            open = open - 1
+            open -= 1
             rest = after
           } else {
             done = true
@@ -759,14 +757,14 @@ fn collect_arrow(
                         body.push(after[0])
                         let n = fun_arity(ctx.env.get(name).unwrap_or(VNull))
                         if open > 0 {
-                          open = open - 1
+                          open -= 1
                         }
-                        open = open + n - 1
+                        open += n - 1
                         rest = after[1:]
                       }
                       _ => {
                         if open > 0 {
-                          open = open - 1
+                          open -= 1
                         } else {
                           done = true
                         }
@@ -775,7 +773,7 @@ fn collect_arrow(
                     }
                   _ => {
                     if open > 0 {
-                      open = open - 1
+                      open -= 1
                     } else {
                       done = true
                     }
@@ -783,7 +781,7 @@ fn collect_arrow(
                   }
                 }
               } else if open > 0 {
-                open = open - 1
+                open -= 1
                 rest = after
               } else {
                 done = true
@@ -969,10 +967,10 @@ fn exec_dictionary(
   ctx : Ctx,
 ) -> Map[String, Value] raise ArturoError {
   let out : Map[String, Value] = Map([])
-  for rest = blk; rest is [_, ..]; {
-    match rest[0] {
+  for rest = blk; rest is [first, .. after]; {
+    match first {
       VLabel(name) => {
-        let rest2 = eval_statement(rest[1:], ctx)
+        let rest2 = eval_statement(after, ctx)
         let v = ctx.pop_or_null()
         out[name] = v
         continue rest2
@@ -983,24 +981,8 @@ fn exec_dictionary(
         continue rest2
       }
     }
-  } nobreak {
-    ()
   }
   out
-  // let mut rest = blk
-  // while !rest.is_empty() {
-  //   match rest[0] {
-  //     VLabel(name) => {
-  //       rest = eval_statement(rest[1:], ctx)
-  //       let v = ctx.pop_or_null()
-  //       out[name] = v
-  //     }
-  //     _ => {
-  //       rest = eval_statement(rest, ctx)
-  //       ignore(ctx.stack.pop())
-  //     }
-  //   }
-  // }
 }
 
 ///|
