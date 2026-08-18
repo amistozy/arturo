@@ -179,10 +179,10 @@ fn fun_arity(fun : Value) -> Int {
 
 ///|
 /// Evaluate a whole block (statement by statement).
-fn eval_block(blk : Array[Value], ctx : Ctx) -> Unit raise ArturoError {
-  let n = blk.length()
-  for i = 0; i < n; i = eval_statement(blk, i, ctx) {
-
+fn eval_block(blk : ArrayView[Value], ctx : Ctx) -> Unit raise ArturoError {
+  let mut rest = blk
+  while rest.length() > 0 {
+    rest = eval_statement(rest, ctx)
   }
 }
 
@@ -191,128 +191,143 @@ fn eval_block(blk : Array[Value], ctx : Ctx) -> Unit raise ArturoError {
 /// Pushes exactly the chain's final value (pipes are statement-level,
 /// exactly like `addPotentialTrailingPipe` in `ast.nim`).
 fn eval_statement(
-  blk : Array[Value],
-  i : Int,
+  blk : ArrayView[Value],
   ctx : Ctx,
-) -> Int raise ArturoError {
-  let mut idx = eval_expr(blk, i, ctx)
-  let n = blk.length()
-  while idx < n && blk[idx] is VSymbol(s) && s == "|" {
-    idx += 1
-    if idx >= n {
+) -> ArrayView[Value] raise ArturoError {
+  let mut rest = eval_expr(blk, ctx)
+  while rest.length() > 0 && rest[0] is VSymbol(s) && s == "|" {
+    rest = rest[1:]
+    if rest.length() == 0 {
       break
     }
-    match blk[idx] {
-      VWord(_) => idx = form_call(blk, idx, ctx, true)
+    match rest[0] {
+      VWord(_) => rest = form_call(rest, ctx, true)
       _ => {
         // unresolved pipe: push the symbol itself as a constant
         ctx.push(VSymbol("|"))
-        idx += 1
+        rest = rest[1:]
       }
     }
   }
-  idx
+  rest
 }
 
 ///|
-/// Evaluate one expression starting at `i`; pushes its value(s) on the
-/// stack and returns the index after the expression.
-fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
-  let item = blk[i]
-  match item {
-    VNull
-    | VLogical(_)
-    | VInteger(_)
-    | VFloating(_)
-    | VChar(_)
-    | VString(_)
-    | VType(_)
-    | VLiteral(_)
-    | VBlock(_)
-    | VDictionary(_)
-    | VRange(_)
-    | VFunction(_) => {
-      ctx.push(item)
-      eval_infix_tail(blk, i + 1, ctx)
-    }
-    VInline(inner) => {
-      eval_block(inner, ctx)
-      eval_infix_tail(blk, i + 1, ctx)
-    }
-    VSymbol(s) => eval_symbol(blk, i, ctx, s)
-    VWord(w) =>
-      if w == "true" {
-        ctx.push(VLogical(true))
-        eval_infix_tail(blk, i + 1, ctx)
-      } else if w == "false" {
-        ctx.push(VLogical(false))
-        eval_infix_tail(blk, i + 1, ctx)
-      } else {
-        match ctx.env.get(w) {
-          Some(VFunction(_)) => form_call(blk, i, ctx, false)
-          Some(v) => {
-            ctx.push(v)
-            eval_infix_tail(blk, i + 1, ctx)
+/// Evaluate one expression; pushes its value(s) on the stack and
+/// returns the rest of the block after the expression.
+fn eval_expr(
+  blk : ArrayView[Value],
+  ctx : Ctx,
+) -> ArrayView[Value] raise ArturoError {
+  match blk {
+    [] => raise RuntimeError(message="evaluation reached the end of the block")
+    [item, .. rest] =>
+      match item {
+        VNull
+        | VLogical(_)
+        | VInteger(_)
+        | VFloating(_)
+        | VChar(_)
+        | VString(_)
+        | VType(_)
+        | VLiteral(_)
+        | VBlock(_)
+        | VDictionary(_)
+        | VRange(_)
+        | VFunction(_) => {
+          ctx.push(item)
+          eval_infix_tail(rest, ctx)
+        }
+        VInline(inner) => {
+          eval_block(inner[:], ctx)
+          eval_infix_tail(rest, ctx)
+        }
+        VSymbol(s) => eval_symbol(blk, ctx, s)
+        VWord(w) =>
+          if w == "true" {
+            ctx.push(VLogical(true))
+            eval_infix_tail(rest, ctx)
+          } else if w == "false" {
+            ctx.push(VLogical(false))
+            eval_infix_tail(rest, ctx)
+          } else {
+            match ctx.env.get(w) {
+              Some(VFunction(_)) => form_call(blk, ctx, false)
+              Some(v) => {
+                ctx.push(v)
+                eval_infix_tail(rest, ctx)
+              }
+              None =>
+                raise RuntimeError(
+                  message="cannot resolve requested value: \{w}",
+                )
+            }
           }
-          None =>
-            raise RuntimeError(message="cannot resolve requested value: \{w}")
+        VLabel(name) =>
+          // store: its value is a full statement (pipes allowed);
+          // a trailing label (nothing after `:`) stores null
+          match rest {
+            [] => {
+              ctx.env.set(name, VNull)
+              []
+            }
+            _ => {
+              let rest2 = eval_statement(rest, ctx)
+              let v = ctx.pop_or_null()
+              ctx.env.set(name, v)
+              rest2
+            }
+          }
+        VPathLabel(parts) =>
+          match rest {
+            [] => {
+              set_path(parts, VNull, ctx)
+              []
+            }
+            _ => {
+              let rest2 = eval_statement(rest, ctx)
+              let v = ctx.pop_or_null()
+              set_path(parts, v, ctx)
+              rest2
+            }
+          }
+        VAttribute(name) => {
+          match ctx.pending_attrs {
+            Some(attrs) => attrs.push((name, VLogical(true)))
+            None => ()
+          }
+          eval_infix_tail(rest, ctx)
+        }
+        VAttributeLabel(name) =>
+          match rest {
+            [] => {
+              // a trailing attribute-label records null
+              match ctx.pending_attrs {
+                Some(attrs) => attrs.push((name, VNull))
+                None => ()
+              }
+              []
+            }
+            _ => {
+              let rest2 = eval_expr(rest, ctx)
+              let v = ctx.pop_or_null()
+              match ctx.pending_attrs {
+                Some(attrs) => attrs.push((name, v))
+                None => ()
+              }
+              eval_infix_tail(rest2, ctx)
+            }
+          }
+        VPath(parts) => {
+          let v = match fetch_path(parts, ctx) {
+            Some(x) => x
+            None =>
+              raise RuntimeError(message="cannot resolve path: \{VPath(parts)}")
+          }
+          ctx.push(v)
+          eval_infix_tail(rest, ctx)
         }
       }
-    VLabel(name) =>
-      // store: its value is a full statement (pipes allowed);
-      // a trailing label (nothing after `:`) stores null
-      if i + 1 >= blk.length() {
-        ctx.env.set(name, VNull)
-        i + 1
-      } else {
-        let idx = eval_statement(blk, i + 1, ctx)
-        let v = ctx.pop_or_null()
-        ctx.env.set(name, v)
-        idx
-      }
-    VPathLabel(parts) =>
-      if i + 1 >= blk.length() {
-        set_path(parts, VNull, ctx)
-        i + 1
-      } else {
-        let idx = eval_statement(blk, i + 1, ctx)
-        let v = ctx.pop_or_null()
-        set_path(parts, v, ctx)
-        idx
-      }
-    VAttribute(name) => {
-      match ctx.pending_attrs {
-        Some(attrs) => attrs.push((name, VLogical(true)))
-        None => ()
-      }
-      eval_infix_tail(blk, i + 1, ctx)
-    }
-    VAttributeLabel(name) =>
-      if i + 1 >= blk.length() {
-        // a trailing attribute-label records null
-        match ctx.pending_attrs {
-          Some(attrs) => attrs.push((name, VNull))
-          None => ()
-        }
-        i + 1
-      } else {
-        let idx = eval_expr(blk, i + 1, ctx)
-        let v = ctx.pop_or_null()
-        match ctx.pending_attrs {
-          Some(attrs) => attrs.push((name, v))
-          None => ()
-        }
-        eval_infix_tail(blk, idx, ctx)
-      }
-    VPath(parts) => {
-      let v = match fetch_path(parts, ctx) {
-        Some(x) => x
-        None =>
-          raise RuntimeError(message="cannot resolve path: \{VPath(parts)}")
-      }
-      ctx.push(v)
-      eval_infix_tail(blk, i + 1, ctx)
-    }
   }
 }
 
@@ -321,57 +336,53 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
 /// (or a pipe — handled by `eval_statement`); if so, form the operator
 /// call with the pushed value as its first argument.
 fn eval_infix_tail(
-  blk : Array[Value],
-  i : Int,
+  blk : ArrayView[Value],
   ctx : Ctx,
-) -> Int raise ArturoError {
-  if i < blk.length() {
-    match blk[i] {
-      VSymbol(s) =>
-        match alias_lookup(s) {
-          Some((InfixPrec, name)) => {
-            let fun = match ctx.env.get(name) {
-              Some(x) => x
-              None =>
-                raise RuntimeError(
-                  message="cannot resolve requested value: \{name}",
-                )
-            }
-            let arity = fun_arity(fun)
-            let saved = ctx.pending_attrs
-            ctx.pending_attrs = Some([])
-            let mut idx = i + 1
-            let to_consume = arity - 1
-            let mut consumed = 0
-            while consumed < to_consume {
-              if idx >= blk.length() {
+) -> ArrayView[Value] raise ArturoError {
+  match blk {
+    [VSymbol(s), .. rest] =>
+      match alias_lookup(s) {
+        Some((InfixPrec, name)) => {
+          let fun = match ctx.env.get(name) {
+            Some(x) => x
+            None =>
+              raise RuntimeError(
+                message="cannot resolve requested value: \{name}",
+              )
+          }
+          let arity = fun_arity(fun)
+          let saved = ctx.pending_attrs
+          ctx.pending_attrs = Some([])
+          let mut args_rest = rest
+          let to_consume = arity - 1
+          let mut consumed = 0
+          while consumed < to_consume {
+            match args_rest {
+              [] =>
                 raise RuntimeError(
                   message="not enough arguments for operator \{s}",
                 )
-              }
-              if blk[idx] is VAttribute(_) || blk[idx] is VAttributeLabel(_) {
+              [VAttribute(_) | VAttributeLabel(_), ..] =>
                 // attributes attach to the call without consuming a slot
-                idx = eval_expr(blk, idx, ctx)
-              } else {
-                idx = eval_expr(blk, idx, ctx)
+                args_rest = eval_expr(args_rest, ctx)
+              _ => {
+                args_rest = eval_expr(args_rest, ctx)
                 consumed = consumed + 1
               }
             }
-            let attrs = match ctx.pending_attrs {
-              Some(x) => x
-              None => []
-            }
-            ctx.pending_attrs = saved
-            let args = ctx.pop_args(arity)
-            invoke(fun, args, ctx, s, attrs~)
-            idx
           }
-          _ => i
+          let attrs = match ctx.pending_attrs {
+            Some(x) => x
+            None => []
+          }
+          ctx.pending_attrs = saved
+          let args = ctx.pop_args(arity)
+          invoke(fun, args, ctx, s, attrs~)
+          args_rest
         }
-      _ => i
-    }
-  } else {
-    i
+        _ => blk
+      }
+    _ => blk
   }
 }
 
@@ -389,43 +400,40 @@ fn Ctx::pop_args(ctx : Ctx, n : Int) -> Array[Value] raise ArturoError {
 ///|
 /// Evaluate a symbol expression (arrow, pipe target, operator call...).
 fn eval_symbol(
-  blk : Array[Value],
-  i : Int,
+  blk : ArrayView[Value],
   ctx : Ctx,
   s : String,
-) -> Int raise ArturoError {
+) -> ArrayView[Value] raise ArturoError {
   if s == "->" {
-    let (body, idx) = collect_arrow(blk, i + 1, ctx)
+    let (body, rest) = collect_arrow(blk[1:], ctx)
     ctx.push(VBlock(body))
-    idx
+    rest
   } else if s == "=>" {
-    let (params, sub, idx) = collect_thick_arrow(blk, i + 1, ctx)
+    let (params, sub, rest) = collect_thick_arrow(blk[1:], ctx)
     ctx.push(params)
     ctx.push(VBlock(sub))
-    idx
+    rest
   } else if s == "!" {
     // execute the rest of the block
-    let rest2 : Array[Value] = blk[i + 1:].to_owned()
-    eval_block(rest2, ctx)
-    blk.length()
+    eval_block(blk[1:], ctx)
+    blk[blk.length():]
   } else if s == "::" {
     // the rest of the block, as a data block value
-    let rest3 : Array[Value] = blk[i + 1:].to_owned()
-    ctx.push(VBlock(rest3))
-    blk.length()
+    ctx.push(VBlock(blk[1:].to_owned()))
+    blk[blk.length():]
   } else {
     match alias_lookup(s) {
       None => {
         ctx.push(VSymbol(s))
-        i + 1
+        blk[1:]
       }
       Some((_, name)) =>
         match ctx.env.get(name) {
-          Some(VFunction(_)) => form_call_by_name(blk, i, ctx, name)
+          Some(VFunction(_)) => form_call_by_name(blk[1:], ctx, name)
           _ => {
             // constant alias (null, infinite, any)
             ctx.push(ctx.env.get(name).unwrap_or(VNull))
-            eval_infix_tail(blk, i + 1, ctx)
+            eval_infix_tail(blk[1:], ctx)
           }
         }
     }
@@ -433,28 +441,26 @@ fn eval_symbol(
 }
 
 ///|
-/// Form a call for a word at `i`. If `piped`, the top of the stack
-/// (the previous expression's value) is the first argument.
+/// Form a call for a word at the start of `blk`. If `piped`, the top of
+/// the stack (the previous expression's value) is the first argument.
 fn form_call(
-  blk : Array[Value],
-  i : Int,
+  blk : ArrayView[Value],
   ctx : Ctx,
   piped : Bool,
-) -> Int raise ArturoError {
-  match blk[i] {
-    VWord(w) => form_call_by_name(blk, i, ctx, w, piped~)
+) -> ArrayView[Value] raise ArturoError {
+  match blk {
+    [VWord(w), .. rest] => form_call_by_name(rest, ctx, w, piped~)
     _ => raise RuntimeError(message="expected a function name after `|`")
   }
 }
 
 ///|
 fn form_call_by_name(
-  blk : Array[Value],
-  i : Int,
+  blk : ArrayView[Value],
   ctx : Ctx,
   name : String,
   piped? : Bool = false,
-) -> Int raise ArturoError {
+) -> ArrayView[Value] raise ArturoError {
   let fun = match ctx.env.get(name) {
     Some(x) => x
     None =>
@@ -470,19 +476,19 @@ fn form_call_by_name(
   let arity = fun_arity(fun)
   let saved = ctx.pending_attrs
   ctx.pending_attrs = Some([])
-  let mut idx = i + 1
+  let mut rest = blk
   let to_consume = if piped { arity - 1 } else { arity }
   let mut consumed = 0
   while consumed < to_consume {
-    if idx >= blk.length() {
-      raise RuntimeError(message="not enough arguments for \{name}")
-    }
-    if blk[idx] is VAttribute(_) || blk[idx] is VAttributeLabel(_) {
-      // attributes attach to the call without consuming a slot
-      idx = eval_expr(blk, idx, ctx)
-    } else {
-      idx = eval_expr(blk, idx, ctx)
-      consumed = consumed + 1
+    match rest {
+      [] => raise RuntimeError(message="not enough arguments for \{name}")
+      [VAttribute(_) | VAttributeLabel(_), ..] =>
+        // attributes attach to the call without consuming a slot
+        rest = eval_expr(rest, ctx)
+      _ => {
+        rest = eval_expr(rest, ctx)
+        consumed = consumed + 1
+      }
     }
   }
   let attrs = match ctx.pending_attrs {
@@ -492,7 +498,7 @@ fn form_call_by_name(
   ctx.pending_attrs = saved
   let args = ctx.pop_args(arity)
   invoke(fun, args, ctx, name, attrs~)
-  idx
+  rest
 }
 
 ///|
@@ -671,113 +677,146 @@ fn set_path(
 /// Collect the raw items of an arrow body (`->`): one root-level
 /// expression, with nested arrows inlined as blocks.
 fn collect_arrow(
-  blk : Array[Value],
-  i : Int,
+  blk : ArrayView[Value],
   ctx : Ctx,
-) -> (Array[Value], Int) raise ArturoError {
+) -> (Array[Value], ArrayView[Value]) raise ArturoError {
   let body : Array[Value] = []
-  let mut idx = i
+  let mut rest = blk
   let mut open = 0 // open argument/pipe slots
   let mut done = false
-  while idx < blk.length() && !done {
-    let item = blk[idx]
+  while rest.length() > 0 && !done {
+    let item = rest[0]
+    let after = rest[1:]
     match item {
       VSymbol(s) if s == "->" => {
-        let (sub, nxt) = collect_arrow(blk, idx + 1, ctx)
+        let (sub, nxt) = collect_arrow(after, ctx)
         body.push(VBlock(sub))
         if open > 0 {
           open = open - 1
         }
-        idx = nxt
+        rest = nxt
       }
       VSymbol(s) if s == "=>" => {
-        let (params, sub, nxt) = collect_thick_arrow(blk, idx + 1, ctx)
+        let (params, sub, nxt) = collect_thick_arrow(after, ctx)
         body.push(params)
         body.push(VBlock(sub))
         if open > 0 {
           open = open - 1
         }
-        idx = nxt
+        rest = nxt
       }
       VSymbol(s) if s == "|" => {
         body.push(item)
         open = open + 1
-        idx = idx + 1
+        rest = after
       }
       VWord(w) => {
         body.push(item)
         if w == "true" || w == "false" {
           // a constant word behaves like a terminal
-          if idx + 1 < blk.length() {
-            match blk[idx + 1] {
+          if after.length() > 0 {
+            match after[0] {
               VSymbol(s2) =>
                 match alias_lookup(s2) {
                   Some((InfixPrec, name)) => {
-                    body.push(blk[idx + 1])
+                    body.push(after[0])
                     let n = fun_arity(ctx.env.get(name).unwrap_or(VNull))
                     if open > 0 {
                       open = open - 1
                     }
                     open = open + n - 1
-                    idx = idx + 1
+                    rest = after[1:]
                   }
-                  _ => if open > 0 { open = open - 1 } else { done = true }
+                  _ => {
+                    if open > 0 {
+                      open = open - 1
+                    } else {
+                      done = true
+                    }
+                    rest = after
+                  }
                 }
-              _ => if open > 0 { open = open - 1 } else { done = true }
+              _ => {
+                if open > 0 {
+                  open = open - 1
+                } else {
+                  done = true
+                }
+                rest = after
+              }
             }
           } else if open > 0 {
             open = open - 1
+            rest = after
           } else {
             done = true
+            rest = after
           }
         } else {
           match ctx.env.get(w) {
-            Some(VFunction(fun)) =>
+            Some(VFunction(fun)) => {
               if open > 0 {
                 open = open - 1 + fun_arity(VFunction(fun))
               } else {
                 open = fun_arity(VFunction(fun))
               }
+              rest = after
+            }
             _ =>
-              if idx + 1 < blk.length() {
-                match blk[idx + 1] {
+              if after.length() > 0 {
+                match after[0] {
                   VSymbol(s2) =>
                     match alias_lookup(s2) {
                       Some((InfixPrec, name)) => {
-                        body.push(blk[idx + 1])
+                        body.push(after[0])
                         let n = fun_arity(ctx.env.get(name).unwrap_or(VNull))
                         if open > 0 {
                           open = open - 1
                         }
                         open = open + n - 1
-                        idx = idx + 1
+                        rest = after[1:]
                       }
-                      _ => if open > 0 { open = open - 1 } else { done = true }
+                      _ => {
+                        if open > 0 {
+                          open = open - 1
+                        } else {
+                          done = true
+                        }
+                        rest = after
+                      }
                     }
-                  _ => if open > 0 { open = open - 1 } else { done = true }
+                  _ => {
+                    if open > 0 {
+                      open = open - 1
+                    } else {
+                      done = true
+                    }
+                    rest = after
+                  }
                 }
               } else if open > 0 {
                 open = open - 1
+                rest = after
               } else {
                 done = true
+                rest = after
               }
           }
         }
-        idx = idx + 1
       }
       VLabel(_) | VPathLabel(_) => {
         body.push(item)
         open = open + 1
-        idx = idx + 1
+        rest = after
       }
       VAttribute(_) => {
         body.push(item)
-        idx = idx + 1
+        rest = after
       }
       VAttributeLabel(_) => {
         body.push(item)
         open = open + 1
-        idx = idx + 1
+        rest = after
       }
       VSymbol(s) =>
         match alias_lookup(s) {
@@ -791,7 +830,7 @@ fn collect_arrow(
             } else {
               open = n
             }
-            idx = idx + 1
+            rest = after
           }
           Some((PrefixPrec, name)) =>
             match ctx.env.get(name) {
@@ -802,7 +841,7 @@ fn collect_arrow(
                 } else {
                   open = fun_arity(VFunction(fun))
                 }
-                idx = idx + 1
+                rest = after
               }
               _ => {
                 // constant symbol
@@ -812,7 +851,7 @@ fn collect_arrow(
                 } else {
                   done = true
                 }
-                idx = idx + 1
+                rest = after
               }
             }
           None => {
@@ -822,44 +861,59 @@ fn collect_arrow(
             } else {
               done = true
             }
-            idx = idx + 1
+            rest = after
           }
         }
       _ => {
         body.push(item)
-        if idx + 1 < blk.length() {
-          match blk[idx + 1] {
+        if after.length() > 0 {
+          match after[0] {
             VSymbol(s2) =>
               match alias_lookup(s2) {
                 Some((InfixPrec, name)) => {
                   // the terminal is the operator's first argument
-                  body.push(blk[idx + 1])
+                  body.push(after[0])
                   let n = fun_arity(ctx.env.get(name).unwrap_or(VNull))
                   if open > 0 {
                     open = open - 1
                   }
                   open = open + n - 1
-                  idx = idx + 1
+                  rest = after[1:]
                 }
-                _ => if open > 0 { open = open - 1 } else { done = true }
+                _ => {
+                  if open > 0 {
+                    open = open - 1
+                  } else {
+                    done = true
+                  }
+                  rest = after
+                }
               }
-            _ => if open > 0 { open = open - 1 } else { done = true }
+            _ => {
+              if open > 0 {
+                open = open - 1
+              } else {
+                done = true
+              }
+              rest = after
+            }
           }
         } else if open > 0 {
           open = open - 1
+          rest = after
         } else {
           done = true
+          rest = after
         }
-        idx = idx + 1
       }
     }
-    if open == 0 && idx < blk.length() {
+    if open == 0 && rest.length() > 0 {
       // a completed expression at the root ends the arrow body
       // (pipes and trailing operators belong to the outer statement)
       done = true
     }
   }
-  (body, idx)
+  (body, rest)
 }
 
 ///|
@@ -867,15 +921,12 @@ fn collect_arrow(
 /// block) and body (a block) — with `&` placeholders replaced by
 /// sequential `_0`, `_1`, ... words.
 fn collect_thick_arrow(
-  blk : Array[Value],
-  i : Int,
+  blk : ArrayView[Value],
   ctx : Ctx,
-) -> (Value, Array[Value], Int) {
-  if i >= blk.length() {
-    return (VBlock([]), [], i)
-  }
-  match blk[i] {
-    VBlock(items) => {
+) -> (Value, Array[Value], ArrayView[Value]) {
+  match blk {
+    [] => (VBlock([]), [], [])
+    [VBlock(items), .. rest] => {
       let names : Ref[Array[String]] = Ref([])
       let sub : Array[Value] = []
       for item in items {
@@ -883,12 +934,12 @@ fn collect_thick_arrow(
       }
       let args = names.val
       if args.length() == 1 {
-        (VLiteral(args[0]), sub, i + 1)
+        (VLiteral(args[0]), sub, rest)
       } else {
-        (VBlock(args.map(a => VLiteral(a))), sub, i + 1)
+        (VBlock(args.map(a => VLiteral(a))), sub, rest)
       }
     }
-    VWord(w) =>
+    [VWord(w), .. rest] =>
       match ctx.env.get(w) {
         Some(VFunction(fun)) => {
           let n = fun_arity(VFunction(fun))
@@ -899,11 +950,11 @@ fn collect_thick_arrow(
             args.push(name)
             sub.push(VWord(name))
           }
-          (VBlock(args.map(a => VLiteral(a))), sub, i + 1)
+          (VBlock(args.map(a => VLiteral(a))), sub, rest)
         }
-        _ => (VBlock([]), [blk[i]], i + 1)
+        _ => (VBlock([]), [VWord(w)], rest)
       }
-    _ => (VBlock([]), [blk[i]], i + 1)
+    [item, .. rest] => (VBlock([]), [item], rest)
   }
 }
 
@@ -926,24 +977,21 @@ fn replace_ampersands(v : Value, names : Ref[Array[String]]) -> Value {
 /// its original insertion position (MoonBit's `Map` is a linked hash
 /// map, exactly like the reference's `OrderedTable`).
 fn exec_dictionary(
-  blk : Array[Value],
+  blk : ArrayView[Value],
   ctx : Ctx,
 ) -> Map[String, Value] raise ArturoError {
   let out : Map[String, Value] = Map([])
-  let mut i = 0
-  let n = blk.length()
-  while i < n {
-    match blk[i] {
+  let mut rest = blk
+  while rest.length() > 0 {
+    match rest[0] {
       VLabel(name) => {
-        let idx2 = eval_statement(blk, i + 1, ctx)
+        rest = eval_statement(rest[1:], ctx)
         let v = ctx.pop_or_null()
         out[name] = v
-        i = idx2
       }
       _ => {
-        let idx3 = eval_statement(blk, i, ctx)
+        rest = eval_statement(rest, ctx)
         ignore(ctx.stack.pop())
-        i = idx3
       }
     }
   }
@@ -967,7 +1015,7 @@ fn attr_has(attrs : Array[(String, Value)], name : String) -> Bool {
 /// Evaluate a block and return the values it pushed (in order),
 /// without leaving them on the stack.
 fn eval_block_values(
-  blk : Array[Value],
+  blk : ArrayView[Value],
   ctx : Ctx,
 ) -> Array[Value] raise ArturoError {
   let before = ctx.stack.length()
@@ -981,7 +1029,10 @@ fn eval_block_values(
 }
 
 ///|
-fn eval_block_last(blk : Array[Value], ctx : Ctx) -> Value raise ArturoError {
+fn eval_block_last(
+  blk : ArrayView[Value],
+  ctx : Ctx,
+) -> Value raise ArturoError {
   let vals = eval_block_values(blk, ctx)
   if vals.length() > 0 {
     vals[vals.length() - 1]
