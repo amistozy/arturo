@@ -80,8 +80,8 @@ priv struct Ctx {
   stack : Array[Value]
   env : Env
   out : StringBuilder
-  pending_attrs : Ref[Array[(String, Value)]?]
-  current_attrs : Ref[Array[(String, Value)]]
+  mut pending_attrs : Array[(String, Value)]?
+  mut current_attrs : Array[(String, Value)]
   line : Int
 }
 
@@ -91,8 +91,8 @@ fn Ctx::Ctx() -> Ctx {
     stack: [],
     env: Env::empty(),
     out: StringBuilder(),
-    pending_attrs: Ref(None),
-    current_attrs: Ref([]),
+    pending_attrs: None,
+    current_attrs: [],
     line: 1,
   }
 }
@@ -103,8 +103,8 @@ fn Ctx::with_env(env : Env) -> Ctx {
     stack: [],
     env,
     out: StringBuilder(),
-    pending_attrs: Ref(None),
-    current_attrs: Ref([]),
+    pending_attrs: None,
+    current_attrs: [],
     line: 1,
   }
 }
@@ -298,7 +298,7 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
         idx
       }
     VAttribute(name) => {
-      match ctx.pending_attrs.val {
+      match ctx.pending_attrs {
         Some(attrs) => attrs.push((name, VLogical(true)))
         None => ()
       }
@@ -307,7 +307,7 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
     VAttributeLabel(name) =>
       if i + 1 >= blk.length() {
         // a trailing attribute-label records null
-        match ctx.pending_attrs.val {
+        match ctx.pending_attrs {
           Some(attrs) => attrs.push((name, VNull))
           None => ()
         }
@@ -315,7 +315,7 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
       } else {
         let idx = eval_expr(blk, i + 1, ctx)
         let v = ctx.pop_or_null()
-        match ctx.pending_attrs.val {
+        match ctx.pending_attrs {
           Some(attrs) => attrs.push((name, v))
           None => ()
         }
@@ -352,8 +352,8 @@ fn eval_infix_tail(
                 raise ctx.rt_err("cannot resolve requested value: \{name}")
             }
             let arity = fun_arity(fun)
-            let saved = ctx.pending_attrs.val
-            ctx.pending_attrs.val = Some([])
+            let saved = ctx.pending_attrs
+            ctx.pending_attrs = Some([])
             let mut idx = i + 1
             let to_consume = arity - 1
             let mut consumed = 0
@@ -369,11 +369,11 @@ fn eval_infix_tail(
                 consumed = consumed + 1
               }
             }
-            let attrs = match ctx.pending_attrs.val {
+            let attrs = match ctx.pending_attrs {
               Some(x) => x
               None => []
             }
-            ctx.pending_attrs.val = saved
+            ctx.pending_attrs = saved
             let args = ctx.pop_args(arity)
             invoke(fun, args, ctx, s, attrs~)
             idx
@@ -479,8 +479,8 @@ fn form_call_by_name(
       )
   }
   let arity = fun_arity(fun)
-  let saved = ctx.pending_attrs.val
-  ctx.pending_attrs.val = Some([])
+  let saved = ctx.pending_attrs
+  ctx.pending_attrs = Some([])
   let mut idx = i + 1
   let to_consume = if piped { arity - 1 } else { arity }
   let mut consumed = 0
@@ -496,11 +496,11 @@ fn form_call_by_name(
       consumed = consumed + 1
     }
   }
-  let attrs = match ctx.pending_attrs.val {
+  let attrs = match ctx.pending_attrs {
     Some(x) => x
     None => []
   }
-  ctx.pending_attrs.val = saved
+  ctx.pending_attrs = saved
   let args = ctx.pop_args(arity)
   invoke(fun, args, ctx, name, attrs~)
   idx
@@ -520,15 +520,15 @@ fn invoke(
     VFunction(UserFunction(params~, main~, inline=_)) =>
       call_user(params, main, args, ctx, attrs)
     VFunction(BuiltinFunction(name=bname)) => {
-      let saved = ctx.current_attrs.val
-      ctx.current_attrs.val = attrs
+      let saved = ctx.current_attrs
+      ctx.current_attrs = attrs
       invoke_builtin(bname, ctx, args) catch {
         err => {
-          ctx.current_attrs.val = saved
+          ctx.current_attrs = saved
           raise err
         }
       }
-      ctx.current_attrs.val = saved
+      ctx.current_attrs = saved
     }
     _ =>
       raise ctx.rt_err("cannot call value of type \{fun.type_name()}: \{name}")
@@ -549,8 +549,8 @@ fn call_user(
   for i = 0; i < params.length() && i < args.length(); i = i + 1 {
     ctx.env.set(params[i], args[i])
   }
-  let saved_attrs = ctx.current_attrs.val
-  ctx.current_attrs.val = attrs
+  let saved_attrs = ctx.current_attrs
+  ctx.current_attrs = attrs
   let before = ctx.stack.length()
   let result = try {
     eval_block(main, ctx)
@@ -562,12 +562,12 @@ fn call_user(
   } catch {
     ArturoError::ReturnSignal(v) => v
     err => {
-      ctx.current_attrs.val = saved_attrs
+      ctx.current_attrs = saved_attrs
       ctx.env.pop_scope()
       raise err
     }
   }
-  ctx.current_attrs.val = saved_attrs
+  ctx.current_attrs = saved_attrs
   ctx.env.pop_scope()
   // keep only the result
   while ctx.stack.length() > before {

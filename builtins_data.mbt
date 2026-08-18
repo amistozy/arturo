@@ -174,7 +174,7 @@ fn action_result(action : Value, ctx : Ctx) -> Value raise ArturoError {
 
 ///|
 fn Ctx::with_attr(ctx : Ctx) -> Value? {
-  attr_get(ctx.current_attrs.val, "with")
+  attr_get(ctx.current_attrs, "with")
 }
 
 ///|
@@ -210,8 +210,8 @@ fn b_map(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// condition holds; `.first: n` / `.last: n` cap the number of kept
 /// items.
 fn b_select(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  let first_attr = attr_get(ctx.current_attrs.val, "first")
-  let last_attr = attr_get(ctx.current_attrs.val, "last")
+  let first_attr = attr_get(ctx.current_attrs, "first")
+  let last_attr = attr_get(ctx.current_attrs, "last")
   let res : Array[Value] = []
   iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (group, ctx2) => {
     let v = action_result(args[2], ctx2)
@@ -280,7 +280,7 @@ fn b_someq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_fold(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let items = iterable_items(args[0], ctx)
   let names = iter_params(args[1])
-  let seed = attr_get(ctx.current_attrs.val, "seed")
+  let seed = attr_get(ctx.current_attrs, "seed")
   let mut acc = match seed {
     Some(v) => v
     None => if items.length() > 0 { items[0] } else { VNull }
@@ -340,7 +340,7 @@ fn RangeVal::len(self : RangeVal) -> Int {
 ///|
 /// `first value` (with optional `.n`).
 fn b_first(ctx : Ctx, args : Array[Value]) -> Unit {
-  let n = attr_get(ctx.current_attrs.val, "n")
+  let n = attr_get(ctx.current_attrs, "n")
   match n {
     Some(VInteger(k)) =>
       match args[0] {
@@ -409,7 +409,7 @@ fn take_string(s : String, k : Int) -> String {
 ///|
 /// `last value` (with optional `.n`).
 fn b_last(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  let n = attr_get(ctx.current_attrs.val, "n")
+  let n = attr_get(ctx.current_attrs, "n")
   match n {
     Some(VInteger(k)) =>
       match args[0] {
@@ -759,7 +759,7 @@ fn b_range(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VChar(c) => (c.to_int(), false)
     _ => raise ctx.rt_err("wrong argument type for range")
   }
-  let step = match attr_get(ctx.current_attrs.val, "step") {
+  let step = match attr_get(ctx.current_attrs, "step") {
     Some(VInteger(s)) =>
       if s == 0 {
         raise ctx.rt_err("range with zero step")
@@ -1134,7 +1134,7 @@ fn b_strip(ctx : Ctx, args : Array[Value]) -> Unit {
 ///|
 /// `join block` — concatenate; `.with: sep` joins with a separator.
 fn b_join(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  let sep = match attr_get(ctx.current_attrs.val, "with") {
+  let sep = match attr_get(ctx.current_attrs, "with") {
     Some(VString(s)) => s
     Some(VChar(c)) => c.to_string()
     _ => ""
@@ -1151,9 +1151,9 @@ fn b_join(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_split(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
     VString(s) => {
-      let by = attr_get(ctx.current_attrs.val, "by")
-      let words = attr_has(ctx.current_attrs.val, "words")
-      let every = attr_get(ctx.current_attrs.val, "every")
+      let by = attr_get(ctx.current_attrs, "by")
+      let words = attr_has(ctx.current_attrs, "words")
+      let every = attr_get(ctx.current_attrs, "every")
       if words {
         let parts : Array[Value] = []
         let mut current = StringBuilder()
@@ -1215,7 +1215,7 @@ fn b_split(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `pad value width` — pad with spaces (or `.with: char`).
 fn b_pad(ctx : Ctx, args : Array[Value]) -> Unit {
   let width = args[1].as_int().unwrap_or(0)
-  let fill = match attr_get(ctx.current_attrs.val, "with") {
+  let fill = match attr_get(ctx.current_attrs, "with") {
     Some(VChar(c)) => c
     _ => ' '
   }
