@@ -1,1 +1,10 @@
 pkgtype(kind: "executable")
+
+import {
+  "amistozy/arturo",
+  "moonbitlang/async",
+  "moonbitlang/async/stdio",
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+}

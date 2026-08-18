@@ -1,0 +1,4 @@
+; hello.art - a small Arturo script for the CLI
+print "hello from arturo"
+print args
+print map 1..5 'x -> x * 2

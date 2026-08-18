@@ -1,11 +1,24 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "amistozy/arturo/cmd/main"
 
+import {
+  "moonbitlang/core/debug",
+}
+
 // Values
 
 // Errors
 
 // Types and methods
+type CliAction derive(@debug.Debug)
+
+type CliError derive(@debug.Debug)
+
+type CliOptions derive(@debug.Debug)
+
+type CliParseResult derive(@debug.Debug)
+
+type RunOutcome
 
 // Type aliases
 

@@ -34,6 +34,35 @@ test {
 - Values are represented by the `Value` type; helpers such as
   `integer`, `string`, `block`, `show_value` and `equal` are provided.
 
+## The CLI
+
+`cmd/main` ports the reference interpreter's command line
+(`reference/arturo/src/arturo.nim`) on top of the EDSL:
+
+```
+arturo [options] <path>        run a script file
+arturo -e, --evaluate <code>   evaluate a code string
+arturo -r, --repl              interactive console
+arturo -h, --help              show help
+arturo -v, --version           show version
+```
+
+Arguments after the script path are available to the script as the `args`
+symbol (a block of strings). With no command and no path, the REPL starts.
+The REPL keeps one environment across inputs, echoes the last non-null value
+as `=> value` (gray, unless `--no-color`), and continues multi-line input on
+`.. ` when a line ends with a space. Parse/runtime errors are reported as
+`[PARSE ERROR] line N: ...` / `[RUNTIME ERROR] line N: ...` and exit with
+status 1.
+
+Run it from the project root (native target):
+
+```
+moon run cmd/main -- examples/hello.art alpha beta
+moon run cmd/main -- -e "print 1 + 2"
+moon run cmd/main -- -r
+```
+
 ## What is supported
 
 ### Language core
@@ -105,3 +134,5 @@ The evaluator mirrors the reference VM:
 - `eval.mbt` — the environment and the tree-walking evaluator
 - `builtins_core.mbt`, `builtins_ops.mbt`, `builtins_data.mbt` — builtins
 - `arturo.mbt` — public API: `run`, `run_with`, `parse`, `new_env`, ...
+- `cmd/main/` — the CLI (`main.mbt`, `cli.mbt`, `runner.mbt`, `repl.mbt`,
+  `help.mbt`)
