@@ -1,16 +1,71 @@
 ///|
-/// Command-line parsing for the Arturo CLI, mirroring the option loop
-/// of the reference `src/arturo.nim`:
+/// Command-line parsing for the Arturo CLI, declared declaratively
+/// with `moonbitlang/core/argparse`, mirroring the reference
+/// `src/arturo.nim`:
 ///
 /// - `-e, --evaluate <code>` runs a code string,
 /// - `-r, --repl` starts the interactive console,
 /// - `-h, --help` and `-v, --version` print the help/version screens,
 /// - `--no-color` mutes colors,
-/// - the first non-option argument is the script path; everything
-///   after it is passed to the script (as the `args` symbol).
+/// - the first positional is the script path; everything after it is
+///   passed to the script (as the `args` symbol).
 ///
 /// With no command and no path, the REPL starts (like the reference).
-/// `--` ends option parsing.
+/// Options may appear anywhere on the command line; use `--` to pass
+/// option-looking arguments to the script itself.
+
+///|
+/// The CLI command specification. Help text is rendered from this
+/// spec (`render_help`); the built-in help/version flags are disabled
+/// so that `-v` can follow the reference's convention.
+fn cli_command() -> @argparse.Command {
+  Command(
+    "arturo",
+    about="A MoonBit port of the Arturo programming language interpreter",
+    disable_help_flag=true,
+    disable_version_flag=true,
+    flags=[
+      FlagArg("help", short='h', long="help", about="Show this help screen"),
+      FlagArg(
+        "version",
+        short='v',
+        long="version",
+        about="Show current version",
+      ),
+      FlagArg(
+        "repl",
+        short='r',
+        long="repl",
+        about="Show repl / interactive console",
+      ),
+      FlagArg("no-color", long="no-color", about="Mute all colors from output"),
+    ],
+    options=[
+      OptionArg(
+        "evaluate",
+        short='e',
+        long="evaluate",
+        about="Evaluate given code string",
+        allow_hyphen_values=true,
+      ),
+    ],
+    positionals=[
+      PositionArg("path", about="Path to the source code file to execute"),
+      PositionArg(
+        "script_args",
+        num_args=ValueRange(lower=0),
+        about="Arguments passed to the script",
+        allow_hyphen_values=true,
+      ),
+    ],
+  )
+}
+
+///|
+/// The help screen, rendered from the command specification.
+fn cli_help_text() -> String {
+  cli_command().render_help()
+}
 
 ///|
 /// What the CLI is asked to do.
@@ -30,82 +85,61 @@ struct CliOptions {
 } derive(Debug)
 
 ///|
-/// A problem with the command line itself (as opposed to a problem in
-/// the code being run).
-enum CliError {
-  UnknownOption(option~ : String)
-  MissingValue(option~ : String)
-} derive(Debug)
-
-///|
+/// The outcome of parsing: the options, or display-ready error text
+/// (which already includes the rendered help).
 enum CliParseResult {
   Parsed(CliOptions)
-  CliFail(CliError)
+  CliFail(message~ : String)
 } derive(Debug)
 
 ///|
-/// An option-looking token: starts with `-` and is longer than a
-/// single dash (a lone `-` is treated as a positional, like the
-/// reference's parseopt).
-fn is_option(arg : String) -> Bool {
-  arg.length() > 1 && arg[0] == '-'
+fn flag_on(flags : Map[String, Bool], name : String) -> Bool {
+  flags.get(name).unwrap_or(false)
 }
 
 ///|
-/// Parse the user arguments (program name already removed).
-fn parse_cli(args : ArrayView[String]) -> CliParseResult {
-  let mut action : CliAction? = None
-  let mut no_color = false
-  let mut i = 0
-  while i < args.length() {
-    let arg = args[i]
-    if arg == "--" {
-      // end of options: the next argument is the script path
-      if i + 1 < args.length() && action is None {
-        return Parsed({
-          action: RunFile(path=args[i + 1], script_args=args[i + 2:].to_owned()),
-          no_color,
-        })
-      }
-      break
-    } else if arg == "-h" || arg == "--help" {
-      action = Some(ShowHelp)
-    } else if arg == "-v" || arg == "--version" {
-      action = Some(ShowVersion)
-    } else if arg == "-r" || arg == "--repl" {
-      action = Some(Repl)
-    } else if arg == "-e" || arg == "--evaluate" {
-      if i + 1 >= args.length() {
-        return CliFail(MissingValue(option=arg))
-      }
-      action = Some(Evaluate(code=args[i + 1]))
-      i = i + 1
-    } else if arg == "--no-color" {
-      no_color = true
-    } else if is_option(arg) {
-      return CliFail(UnknownOption(option=arg))
-    } else if action is None {
-      // first positional argument: the script path; the rest is
-      // passed to the script itself
-      return Parsed({
-        action: RunFile(path=arg, script_args=args[i + 1:].to_owned()),
-        no_color,
-      })
+fn first_value(values : Map[String, Array[String]], name : String) -> String? {
+  match values.get(name) {
+    Some(vs) => if vs.is_empty() { None } else { Some(vs[0]) }
+    None => None
+  }
+}
+
+///|
+/// Turn parsed matches into a CLI action. Precedence: help, version,
+/// evaluate, repl, script path — so `arturo -h script.art` shows the
+/// help screen, while `arturo script.art -e "x"` evaluates `x`
+/// (options may appear anywhere; `--` protects script arguments).
+fn parse_matches(matches : @argparse.Matches) -> CliParseResult {
+  let flags = matches.flags
+  let values = matches.values
+  let no_color = flag_on(flags, "no-color")
+  let action = if flag_on(flags, "help") {
+    ShowHelp
+  } else if flag_on(flags, "version") {
+    ShowVersion
+  } else if first_value(values, "evaluate") is Some(code) {
+    Evaluate(code~)
+  } else if flag_on(flags, "repl") {
+    Repl
+  } else {
+    match first_value(values, "path") {
+      Some(path) =>
+        RunFile(path~, script_args=values.get("script_args").unwrap_or([]))
+      None => Repl
     }
-    // a positional after a command is ignored, like the reference,
-    // where the first positional only fills an empty code string
-    i = i + 1
   }
-  Parsed({ action: action.unwrap_or(Repl), no_color })
+  Parsed({ action, no_color })
 }
 
 ///|
-/// The message for a bad command line, mirroring the reference's
-/// command-line errors (`src/vm/errors.nim`).
-fn cli_error_message(err : CliError) -> String {
-  match err {
-    UnknownOption(option~) => "Unrecognized command-line option: \{option}"
-    MissingValue(option~) =>
-      "Not enough parameters for \{option} - consult the help screen below"
+/// Parse the user arguments (program name already removed). Parse
+/// failures carry display-ready text from argparse.
+fn parse_cli(args : ArrayView[String]) -> CliParseResult {
+  let outcome = try cli_command().parse(argv=args) catch {
+    err => CliFail(message=err.to_string())
+  } noraise {
+    m => parse_matches(m)
   }
+  outcome
 }

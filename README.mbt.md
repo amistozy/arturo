@@ -55,6 +55,11 @@ as `=> value` (gray, unless `--no-color`), and continues multi-line input on
 `[PARSE ERROR] line N: ...` / `[RUNTIME ERROR] line N: ...` and exit with
 status 1.
 
+The command line is declared with `moonbitlang/core/argparse` and the help
+screen is rendered from that spec. Options may appear anywhere on the command
+line; use `--` to pass option-looking arguments to the script itself
+(e.g. `arturo script.art -- --flag`).
+
 Run it from the project root (native target):
 
 ```

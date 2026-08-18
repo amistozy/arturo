@@ -12,8 +12,6 @@ import {
 // Types and methods
 type CliAction derive(@debug.Debug)
 
-type CliError derive(@debug.Debug)
-
 type CliOptions derive(@debug.Debug)
 
 type CliParseResult derive(@debug.Debug)

@@ -19,14 +19,13 @@ async fn main {
   // native argv includes the program name as its first element
   let args = if argv.length() > 0 { argv[1:].to_owned() } else { [] }
   match parse_cli(args[:]) {
-    CliFail(err) => {
-      @stdio.stderr.write(cli_error_message(err) + "\n\n")
-      println(help_text())
+    CliFail(message~) => {
+      @stdio.stderr.write(message + "\n")
       @sys.exit(1)
     }
     Parsed(options) =>
       match options.action {
-        ShowHelp => println(help_text())
+        ShowHelp => println(cli_help_text())
         ShowVersion => println(version_text())
         Repl => repl(options.no_color)
         Evaluate(code~) => run_and_report(code, [], None)

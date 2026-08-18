@@ -91,7 +91,7 @@ test "repl continuation detection" {
 ///|
 test "help and version texts" {
   inspect(version_text(), content="arturo 0.1.0 (MoonBit port)")
-  let h = help_text()
+  let h = cli_help_text()
   assert_true(h.contains("Usage:"))
   assert_true(h.contains("-e, --evaluate"))
   assert_true(h.contains("-r, --repl"))

@@ -4,6 +4,7 @@ import {
   "amistozy/arturo",
   "moonbitlang/async",
   "moonbitlang/async/stdio",
+  "moonbitlang/core/argparse",
   "moonbitlang/core/env",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",

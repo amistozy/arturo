@@ -1,5 +1,6 @@
 ///|
-/// Whitebox tests for the CLI argument parsing (`cli.mbt`).
+/// Whitebox tests for the CLI argument parsing (`cli.mbt`), which
+/// declares the command spec with `moonbitlang/core/argparse`.
 
 ///|
 test "no arguments means repl" {
@@ -36,6 +37,29 @@ test "everything after the script path is passed to the script" {
       #|  },
       #|)
     ),
+  )
+}
+
+///|
+test "unknown hyphen tokens after the path become script args" {
+  debug_inspect(
+    parse_cli(["script.art", "--verbose"]),
+    content=(
+      #|Parsed(
+      #|  {
+      #|    action: RunFile(path="script.art", script_args=["--verbose"]),
+      #|    no_color: false,
+      #|  },
+      #|)
+    ),
+  )
+}
+
+///|
+test "declared options are parsed even after the script path" {
+  debug_inspect(
+    parse_cli(["script.art", "--no-color"]),
+    content="Parsed({ action: RunFile(path=\"script.art\", script_args=[]), no_color: true })",
   )
 }
 
@@ -90,6 +114,16 @@ test "evaluate long form with no-color" {
 }
 
 ///|
+test "evaluate accepts hyphen values" {
+  debug_inspect(
+    parse_cli(["-e", "-1"]),
+    content=(
+      #|Parsed({ action: Evaluate(code="-1"), no_color: false })
+    ),
+  )
+}
+
+///|
 test "positionals after evaluate are ignored" {
   debug_inspect(
     parse_cli(["-e", "print 1", "extra"]),
@@ -101,12 +135,15 @@ test "positionals after evaluate are ignored" {
 
 ///|
 test "evaluate without a value fails" {
-  debug_inspect(
-    parse_cli(["-e"]),
-    content=(
-      #|CliFail(MissingValue(option="-e"))
-    ),
-  )
+  match parse_cli(["-e"]) {
+    CliFail(message~) =>
+      assert_true(
+        message.contains(
+          "error: a value is required for '-e' but none was supplied",
+        ),
+      )
+    Parsed(_) => fail("expected failure")
+  }
 }
 
 ///|
@@ -130,23 +167,11 @@ test "help, version and repl flags" {
 }
 
 ///|
-test "unknown option fails" {
+test "help wins over version and path" {
   debug_inspect(
-    parse_cli(["--bogus"]),
-    content=(
-      #|CliFail(UnknownOption(option="--bogus"))
-    ),
+    parse_cli(["-v", "-h"]),
+    content="Parsed({ action: ShowHelp, no_color: false })",
   )
-  debug_inspect(
-    parse_cli(["-x", "script.art"]),
-    content=(
-      #|CliFail(UnknownOption(option="-x"))
-    ),
-  )
-}
-
-///|
-test "a command flag wins over a later path" {
   debug_inspect(
     parse_cli(["-h", "script.art"]),
     content="Parsed({ action: ShowHelp, no_color: false })",
@@ -154,13 +179,32 @@ test "a command flag wins over a later path" {
 }
 
 ///|
-test "cli error messages" {
-  inspect(
-    cli_error_message(UnknownOption(option="--bogus")),
-    content="Unrecognized command-line option: --bogus",
-  )
-  inspect(
-    cli_error_message(MissingValue(option="-e")),
-    content="Not enough parameters for -e - consult the help screen below",
-  )
+test "unknown option fails with a display-ready message" {
+  match parse_cli(["--bogus"]) {
+    CliFail(message~) => {
+      assert_true(
+        message.contains("error: unexpected argument '--bogus' found"),
+      )
+      assert_true(message.contains("Usage:"))
+    }
+    Parsed(_) => fail("expected failure")
+  }
+  match parse_cli(["-x", "script.art"]) {
+    CliFail(message~) =>
+      assert_true(message.contains("error: unexpected argument '-x' found"))
+    Parsed(_) => fail("expected failure")
+  }
+}
+
+///|
+test "help screen is rendered from the command spec" {
+  let h = cli_help_text()
+  assert_true(h.contains("Usage: arturo"))
+  assert_true(h.contains("-e, --evaluate"))
+  assert_true(h.contains("-r, --repl"))
+  assert_true(h.contains("-h, --help"))
+  assert_true(h.contains("-v, --version"))
+  assert_true(h.contains("--no-color"))
+  assert_true(h.contains("path"))
+  assert_true(h.contains("script_args"))
 }
