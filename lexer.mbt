@@ -10,7 +10,7 @@
 /// Error type raised by both parsing and evaluation.
 pub(all) suberror ArturoError {
   ParseError(line~ : Int, message~ : String)
-  RuntimeError(line~ : Int, message~ : String)
+  RuntimeError(message~ : String)
   // internal control-flow signals (caught by loops / function calls)
   BreakSignal
   ContinueSignal

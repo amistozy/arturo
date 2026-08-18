@@ -108,7 +108,7 @@ test "parse errors are reported" {
 ///|
 test "runtime errors are reported" {
   let r = try @arturo.run("print nope") catch {
-    @arturo.ArturoError::RuntimeError(line=_, message=_m) => "runtime error"
+    @arturo.ArturoError::RuntimeError(message=_m) => "runtime error"
     _ => "other"
   } noraise {
     _ => "no error"

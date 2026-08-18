@@ -71,8 +71,7 @@ fn render_cli_error(err : Error, path : String?) -> String {
       }
     @arturo.ArturoError::ParseError(line~, message~) =>
       "[PARSE ERROR] line \{line}: \{message}"
-    @arturo.ArturoError::RuntimeError(line~, message~) =>
-      "[RUNTIME ERROR] line \{line}: \{message}"
+    @arturo.ArturoError::RuntimeError(message~) => "[RUNTIME ERROR] \{message}"
     // BreakSignal / ContinueSignal / ReturnSignal should never
     // escape to the top level
     _ => "[INTERNAL ERROR] unexpected control-flow signal"

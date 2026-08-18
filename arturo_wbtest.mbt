@@ -19,14 +19,13 @@ test "label in argument position raises instead of panicking" {
   // report it as a runtime error rather than crashing with an
   // out-of-bounds panic
   let r = try run("print ~x:") catch {
-    ArturoError::RuntimeError(line~, message~) =>
-      "RUNTIME line \{line}: \{message}"
+    ArturoError::RuntimeError(message~) => "RUNTIME \{message}"
     ArturoError::ParseError(line~, message~) => "PARSE line \{line}: \{message}"
     _ => "OTHER"
   } noraise {
     rr => "ok out=[\{rr.output}]"
   }
-  inspect(r, content="RUNTIME line 1: stack underflow")
+  inspect(r, content="RUNTIME stack underflow")
 }
 
 ///|

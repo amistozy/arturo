@@ -326,8 +326,8 @@ fn b_let(ctx : Ctx, args : Array[Value]) -> Unit {
 fn b_var(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
     VLiteral(s) | VWord(s) | VString(s) =>
-      ctx.push(opt_or(ctx.env.get(s), VNull))
-    VPath(parts) => ctx.push(opt_or(fetch_path(parts, ctx), VNull))
+      ctx.push(ctx.env.get(s).unwrap_or(VNull))
+    VPath(parts) => ctx.push(fetch_path(parts, ctx).unwrap_or(VNull))
     _ => ctx.push(VNull)
   }
 }
@@ -365,7 +365,7 @@ fn b_new(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `call 'fun [params]`.
 fn b_call(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let fun = match args[0] {
-    VLiteral(s) | VWord(s) | VString(s) => opt_or(ctx.env.get(s), VNull)
+    VLiteral(s) | VWord(s) | VString(s) => ctx.env.get(s).unwrap_or(VNull)
     v => v
   }
   let params = match args[1] {
@@ -595,7 +595,7 @@ fn b_parse(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_attr(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
     VLiteral(s) | VWord(s) =>
-      ctx.push(opt_or(attr_get(ctx.current_attrs, s), VNull))
+      ctx.push(attr_get(ctx.current_attrs, s).unwrap_or(VNull))
     _ => ctx.push(VNull)
   }
 }

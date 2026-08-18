@@ -11,7 +11,7 @@ pub fn run_with(Env, String) -> RunResult raise ArturoError
 // Errors
 pub(all) suberror ArturoError {
   ParseError(line~ : Int, message~ : String)
-  RuntimeError(line~ : Int, message~ : String)
+  RuntimeError(message~ : String)
   BreakSignal
   ContinueSignal
   ReturnSignal(Value)

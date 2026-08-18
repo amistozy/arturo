@@ -75,14 +75,13 @@ fn Env::pop_scope(self : Env) -> Unit {
 
 ///|
 /// The evaluation context: value stack, environment, captured output,
-/// in-flight call attributes, and the current line (for errors).
+/// in-flight call attributes.
 priv struct Ctx {
   stack : Array[Value]
   env : Env
   out : StringBuilder
   mut pending_attrs : Array[(String, Value)]?
   mut current_attrs : Array[(String, Value)]
-  line : Int
 }
 
 ///|
@@ -93,7 +92,6 @@ fn Ctx::Ctx() -> Ctx {
     out: StringBuilder(),
     pending_attrs: None,
     current_attrs: [],
-    line: 1,
   }
 }
 
@@ -105,14 +103,13 @@ fn Ctx::with_env(env : Env) -> Ctx {
     out: StringBuilder(),
     pending_attrs: None,
     current_attrs: [],
-    line: 1,
   }
 }
 
 ///|
-/// Runtime error helpers.
-fn Ctx::rt_err(ctx : Ctx, msg : String) -> ArturoError {
-  ArturoError::RuntimeError(line=ctx.line, message=msg)
+/// Runtime error helper.
+fn Ctx::rt_err(_ctx : Ctx, msg : String) -> ArturoError {
+  RuntimeError(message=msg)
 }
 
 ///|
@@ -133,14 +130,6 @@ fn Ctx::pop_or_null(ctx : Ctx) -> Value {
   match ctx.stack.pop() {
     Some(v) => v
     None => VNull
-  }
-}
-
-///|
-fn opt_or(v : Value?, d : Value) -> Value {
-  match v {
-    Some(x) => x
-    None => d
   }
 }
 
@@ -188,7 +177,7 @@ fn alias_lookup(sym : String) -> (Prec, String)? {
 /// Arity of a function value.
 fn fun_arity(fun : Value) -> Int {
   match fun {
-    VFunction(UserFunction(params~, main=_, inline=_)) => params.length()
+    VFunction(UserFunction(params~, ..)) => params.length()
     VFunction(BuiltinFunction(name~)) => builtin_arity(name)
     _ => 0
   }
@@ -197,10 +186,9 @@ fn fun_arity(fun : Value) -> Int {
 ///|
 /// Evaluate a whole block (statement by statement).
 fn eval_block(blk : Array[Value], ctx : Ctx) -> Unit raise ArturoError {
-  let mut i = 0
   let n = blk.length()
-  while i < n {
-    i = eval_statement(blk, i, ctx)
+  for i = 0; i < n; i = eval_statement(blk, i, ctx) {
+
   }
 }
 
@@ -216,7 +204,7 @@ fn eval_statement(
   let mut idx = eval_expr(blk, i, ctx)
   let n = blk.length()
   while idx < n && blk[idx] is VSymbol(s) && s == "|" {
-    idx = idx + 1
+    idx += 1
     if idx >= n {
       break
     }
@@ -225,7 +213,7 @@ fn eval_statement(
       _ => {
         // unresolved pipe: push the symbol itself as a constant
         ctx.push(VSymbol("|"))
-        idx = idx + 1
+        idx += 1
       }
     }
   }
@@ -436,7 +424,7 @@ fn eval_symbol(
           Some(VFunction(_)) => form_call_by_name(blk, i, ctx, name)
           _ => {
             // constant alias (null, infinite, any)
-            ctx.push(opt_or(ctx.env.get(name), VNull))
+            ctx.push(ctx.env.get(name).unwrap_or(VNull))
             eval_infix_tail(blk, i + 1, ctx)
           }
         }
@@ -721,7 +709,7 @@ fn collect_arrow(
                 match alias_lookup(s2) {
                   Some((InfixPrec, name)) => {
                     body.push(blk[idx + 1])
-                    let n = fun_arity(opt_or(ctx.env.get(name), VNull))
+                    let n = fun_arity(ctx.env.get(name).unwrap_or(VNull))
                     if open > 0 {
                       open = open - 1
                     }
@@ -752,7 +740,7 @@ fn collect_arrow(
                     match alias_lookup(s2) {
                       Some((InfixPrec, name)) => {
                         body.push(blk[idx + 1])
-                        let n = fun_arity(opt_or(ctx.env.get(name), VNull))
+                        let n = fun_arity(ctx.env.get(name).unwrap_or(VNull))
                         if open > 0 {
                           open = open - 1
                         }
@@ -792,7 +780,7 @@ fn collect_arrow(
             // an infix symbol at expression start behaves like a
             // prefix call (e.g. `-5` starts a `sub` call)
             body.push(item)
-            let n = fun_arity(opt_or(ctx.env.get(name), VNull))
+            let n = fun_arity(ctx.env.get(name).unwrap_or(VNull))
             if open > 0 {
               open = open - 1 + n
             } else {
@@ -841,7 +829,7 @@ fn collect_arrow(
                 Some((InfixPrec, name)) => {
                   // the terminal is the operator's first argument
                   body.push(blk[idx + 1])
-                  let n = fun_arity(opt_or(ctx.env.get(name), VNull))
+                  let n = fun_arity(ctx.env.get(name).unwrap_or(VNull))
                   if open > 0 {
                     open = open - 1
                   }

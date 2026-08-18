@@ -41,12 +41,12 @@ test "script arguments are visible as the args symbol" {
 }
 
 ///|
-test "runtime errors are rendered with the line number" {
+test "runtime errors are rendered" {
   match run_source_outcome("print nope", [], None) {
     Failed(message~) =>
       inspect(
         message,
-        content="[RUNTIME ERROR] line 1: cannot resolve requested value: nope",
+        content="[RUNTIME ERROR] cannot resolve requested value: nope",
       )
     Ran(result~) => fail("expected failure, got: \{result.output}")
   }
