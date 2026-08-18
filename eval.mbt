@@ -29,8 +29,7 @@ fn Env::empty() -> Env {
 
 ///|
 fn Env::set(self : Env, name : String, v : Value) -> Unit {
-  if self.frames.length() > 0 {
-    let top = self.frames[self.frames.length() - 1]
+  if self.frames is [.., top] {
     if !top.contains(name) {
       top[name] = self.syms.get(name)
     }
@@ -50,8 +49,7 @@ fn Env::has(self : Env, name : String) -> Bool {
 
 ///|
 fn Env::remove(self : Env, name : String) -> Unit {
-  if self.frames.length() > 0 {
-    let top = self.frames[self.frames.length() - 1]
+  if self.frames is [.., top] {
     if !top.contains(name) {
       top[name] = self.syms.get(name)
     }
@@ -66,7 +64,7 @@ fn Env::push_scope(self : Env) -> Unit {
 
 ///|
 fn Env::pop_scope(self : Env) -> Unit {
-  let frame = self.frames.pop().unwrap_or(Map([]))
+  guard self.frames.pop() is Some(frame) else {  }
   for name, prev in frame {
     match prev {
       Some(v) => self.syms[name] = v
