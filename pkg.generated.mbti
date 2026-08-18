@@ -8,23 +8,11 @@ pub fn as_int(Value) -> Int?
 
 pub fn as_string(Value) -> String?
 
-pub fn block(Array[Value]) -> Value
-
-pub fn dictionary(Array[(String, Value)]) -> Value
-
-pub fn floating(Double) -> Value
-
 pub fn get_symbol(Env, String) -> Value?
-
-pub fn integer(Int) -> Value
 
 pub fn is_truthy(Value) -> Bool
 
-pub fn logical(Bool) -> Value
-
 pub fn new_env() -> Env
-
-pub fn null() -> Value
 
 pub fn parse(String) -> Value raise ArturoError
 
@@ -33,12 +21,6 @@ pub fn run(String) -> RunResult raise ArturoError
 pub fn run_with(Env, String) -> RunResult raise ArturoError
 
 pub fn set_symbol(Env, String, Value) -> Unit
-
-pub fn string(String) -> Value
-
-pub fn type_name(Value) -> String
-
-pub fn type_of(Value) -> Value
 
 // Errors
 pub(all) suberror ArturoError {
@@ -93,6 +75,15 @@ pub(all) enum Value {
   VFunction(FunctionVal)
   VType(String)
 }
+pub fn Value::block(Array[Self]) -> Self
+pub fn Value::dictionary(Array[(String, Self)]) -> Self
+pub fn Value::floating(Double) -> Self
+pub fn Value::integer(Int) -> Self
+pub fn Value::logical(Bool) -> Self
+pub fn Value::null() -> Self
+pub fn Value::string(String) -> Self
+pub fn Value::type_name(Self) -> String
+pub fn Value::type_of(Self) -> Self
 pub impl Eq for Value
 pub impl Show for Value
 

@@ -8,7 +8,11 @@
 /// VM's `sys\args`).
 fn env_with_args(args : Array[String]) -> @arturo.Env {
   let env = @arturo.new_env()
-  @arturo.set_symbol(env, "args", @arturo.block(args.map(@arturo.string)))
+  @arturo.set_symbol(
+    env,
+    "args",
+    @arturo.Value::block(args.map(@arturo.Value::string)),
+  )
   env
 }
 

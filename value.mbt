@@ -48,32 +48,32 @@ pub(all) enum FunctionVal {
 /// Constructors for the most common values.
 
 ///|
-pub fn null() -> Value {
+pub fn Value::null() -> Value {
   VNull
 }
 
 ///|
-pub fn logical(b : Bool) -> Value {
+pub fn Value::logical(b : Bool) -> Value {
   VLogical(b)
 }
 
 ///|
-pub fn integer(i : Int) -> Value {
+pub fn Value::integer(i : Int) -> Value {
   VInteger(i)
 }
 
 ///|
-pub fn floating(f : Double) -> Value {
+pub fn Value::floating(f : Double) -> Value {
   VFloating(f)
 }
 
 ///|
-pub fn string(s : String) -> Value {
+pub fn Value::string(s : String) -> Value {
   VString(s)
 }
 
 ///|
-pub fn block(items : Array[Value]) -> Value {
+pub fn Value::block(items : Array[Value]) -> Value {
   VBlock(items)
 }
 
@@ -81,14 +81,14 @@ pub fn block(items : Array[Value]) -> Value {
 /// Build a dictionary from key/value pairs. The pairs are inserted in
 /// order; later pairs with a duplicate key overwrite earlier ones
 /// (like the reference's `OrderedTable`).
-pub fn dictionary(items : Array[(String, Value)]) -> Value {
+pub fn Value::dictionary(items : Array[(String, Value)]) -> Value {
   VDictionary(Map(items))
 }
 
 ///|
 /// Value kind names, mirroring `stringify` in `printable.nim`
 /// (lowercase name, used by `type`, `is?` and `inspect`).
-pub fn type_name(v : Value) -> String {
+pub fn Value::type_name(v : Value) -> String {
   match v {
     VNull => "null"
     VLogical(_) => "logical"
@@ -115,8 +115,8 @@ pub fn type_name(v : Value) -> String {
 
 ///|
 /// `type` returns a `:type` value; the textual form is `:name`.
-pub fn type_of(v : Value) -> Value {
-  VType(type_name(v))
+pub fn Value::type_of(v : Value) -> Value {
+  VType(v.type_name())
 }
 
 ///|
@@ -178,7 +178,7 @@ fn float_show(f : Double) -> String {
 }
 
 ///|
-fn range_show(r : RangeVal) -> String {
+fn RangeVal::range_show(r : RangeVal) -> String {
   let start = if r.numeric {
     r.start.to_string()
   } else {
@@ -202,7 +202,7 @@ fn range_show(r : RangeVal) -> String {
 ///|
 /// Function rendering (the reference prints `<function>[params](addr)`;
 /// we omit the address, which is not reproducible).
-fn function_show(f : FunctionVal) -> String {
+fn FunctionVal::function_show(f : FunctionVal) -> String {
   match f {
     UserFunction(params~, ..) => "<function>[\{params.join(" ")}]"
     BuiltinFunction(name~) => "<function:builtin:\{name}>"
@@ -237,8 +237,8 @@ pub impl Show for Value with fn to_string(self) {
       }
       "[\{items.join(" ")}]"
     }
-    VRange(r) => range_show(r)
-    VFunction(f) => function_show(f)
+    VRange(r) => r.range_show()
+    VFunction(f) => f.function_show()
     VType(t) => ":\{t}"
   }
 }

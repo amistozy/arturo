@@ -38,7 +38,7 @@ test "non-ascii symbols are skipped by the lexer" {
     _ => []
   }
   inspect(
-    toks.map(t => "type=\{type_name(t)} show=\{t}").join(" ; "),
+    toks.map(t => "type=\{t.type_name()} show=\{t}").join(" ; "),
     content="type=word show=print",
   )
   let toks2 = match parse("1 ∧ 1") {
@@ -46,7 +46,7 @@ test "non-ascii symbols are skipped by the lexer" {
     _ => []
   }
   inspect(
-    toks2.map(t => "type=\{type_name(t)} show=\{t}").join(" ; "),
+    toks2.map(t => "type=\{t.type_name()} show=\{t}").join(" ; "),
     content="type=integer show=1 ; type=integer show=1",
   )
 }

@@ -78,8 +78,11 @@ test "io errors are rendered like the reference script-not-exists error" {
 
 ///|
 test "value echo skips null" {
-  debug_inspect(value_echo(@arturo.null()), content="None")
-  debug_inspect(value_echo(@arturo.integer(42)), content="Some(\"=> 42\")")
+  debug_inspect(value_echo(@arturo.Value::null()), content="None")
+  debug_inspect(
+    value_echo(@arturo.Value::integer(42)),
+    content="Some(\"=> 42\")",
+  )
 }
 
 ///|

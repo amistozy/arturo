@@ -31,8 +31,8 @@ test {
 - `run_with(env, source)` reuses an environment: symbols set beforehand are
   visible to the program, and top-level assignments survive afterwards.
 - `parse(source)` returns the raw block of tokens (no evaluation).
-- Values are represented by the `Value` type; helpers such as
-  `integer`, `string`, `block`, `show_value` and `equal` are provided.
+- Values are represented by the `Value` type; constructor methods such as
+  `Value::integer`, `Value::string` and `Value::block` are provided.
 
 ## The CLI
 

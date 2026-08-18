@@ -25,7 +25,7 @@ priv struct Parser {
 }
 
 ///|
-fn parser_new(src : String) -> Parser {
+fn Parser::Parser(src : String) -> Parser {
   { src, pos: 0, line: 1 }
 }
 
@@ -40,7 +40,7 @@ fn is_eof_char(c : Char) -> Bool {
 }
 
 ///|
-fn peek(p : Parser, off : Int) -> Char {
+fn Parser::peek(p : Parser, off : Int) -> Char {
   let i = p.pos + off
   if i < p.src.length() {
     p.src[i].unsafe_to_char()
@@ -50,8 +50,8 @@ fn peek(p : Parser, off : Int) -> Char {
 }
 
 ///|
-fn advance(p : Parser) -> Unit {
-  let c = peek(p, 0)
+fn Parser::advance(p : Parser) -> Unit {
+  let c = p.peek(0)
   p.pos += 1
   if c == '\n' {
     p.line += 1
@@ -91,24 +91,24 @@ fn dedent_str(s : String) -> String {
 
 ///|
 /// Skip whitespace, `;`-comments and `#!` shebang lines.
-fn skip(p : Parser) -> Unit {
+fn Parser::skip(p : Parser) -> Unit {
   while true {
-    match peek(p, 0) {
-      ' ' | '\t' | '\r' | '\n' => advance(p)
+    match p.peek(0) {
+      ' ' | '\t' | '\r' | '\n' => p.advance()
       ';' => {
-        if peek(p, 1) == ';' {
-          advance(p)
+        if p.peek(1) == ';' {
+          p.advance()
         }
-        advance(p)
-        while !is_eof_char(peek(p, 0)) && peek(p, 0) != '\n' {
-          advance(p)
+        p.advance()
+        while !is_eof_char(p.peek(0)) && p.peek(0) != '\n' {
+          p.advance()
         }
       }
-      '#' if peek(p, 1) == '!' => {
-        advance(p)
-        advance(p)
-        while !is_eof_char(peek(p, 0)) && peek(p, 0) != '\n' {
-          advance(p)
+      '#' if p.peek(1) == '!' => {
+        p.advance()
+        p.advance()
+        while !is_eof_char(p.peek(0)) && p.peek(0) != '\n' {
+          p.advance()
         }
       }
       _ => break
@@ -119,79 +119,79 @@ fn skip(p : Parser) -> Unit {
 ///|
 /// Parse a `"..."` string. Handles the usual escapes plus `|...|`
 /// interpolation markers (kept verbatim; `render` interprets them later).
-fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
+fn Parser::parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
   let sb = StringBuilder()
-  advance(p) // opening quote
+  p.advance() // opening quote
   let initial_line = p.line
   let mut in_code = false
   let mut done = false
   while !done {
-    let c = peek(p, 0)
+    let c = p.peek(0)
     if is_eof_char(c) {
       p.line = initial_line
-      raise ArturoError::ParseError(line=p.line, message="unterminated string")
+      raise ParseError(line=p.line, message="unterminated string")
     } else if c == stopper {
-      advance(p)
+      p.advance()
       done = true
     } else if c == '|' {
       sb.write_string("|")
-      advance(p)
+      p.advance()
       in_code = !in_code
     } else if c == '\\' && !in_code {
-      let e = peek(p, 1)
+      let e = p.peek(1)
       match e {
         '\\' | '"' | '\'' | '/' => {
           sb.write_char(e)
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
         'a' => {
           sb.write_char('\u{7}')
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
         'b' => {
           sb.write_char('\b')
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
         'e' => {
           sb.write_char('\u{1b}')
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
         'f' => {
           sb.write_char('\f')
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
         'n' | 'l' => {
           sb.write_string("\n")
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
         'r' | 'c' => {
           sb.write_string("\r")
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
         't' => {
           sb.write_string("\t")
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
         'v' => {
           sb.write_char('\u{b}')
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
         'x' => {
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
           let mut xi = 0
           let mut count = 0
           while count < 2 {
-            let h = peek(p, 0)
+            let h = p.peek(0)
             if h >= '0' && h <= '9' {
               xi = xi * 16 + (h.to_int() - '0')
             } else if h >= 'a' && h <= 'f' {
@@ -201,7 +201,7 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
             } else {
               break
             }
-            advance(p)
+            p.advance()
             count += 1
           }
           sb.write_char(xi.unsafe_to_char())
@@ -209,19 +209,16 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
         _ => {
           sb.write_string("\\")
           sb.write_char(e)
-          advance(p)
-          advance(p)
+          p.advance()
+          p.advance()
         }
       }
     } else if "\n\r".contains_char(c) {
       p.line = initial_line
-      raise ArturoError::ParseError(
-        line=p.line,
-        message="newline in quoted string",
-      )
+      raise ParseError(line=p.line, message="newline in quoted string")
     } else {
       sb.write_char(c)
-      advance(p)
+      p.advance()
     }
   }
   sb.to_string()
@@ -230,35 +227,32 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
 ///|
 /// `{...}` curly string (dedented).
 /// (The verbatim form `{:...:}` is not supported in this subset.)
-fn parse_curly_string(p : Parser) -> String raise ArturoError {
+fn Parser::parse_curly_string(p : Parser) -> String raise ArturoError {
   let sb = StringBuilder()
-  advance(p) // '{'
+  p.advance() // '{'
   let initial_line = p.line
   let mut curlies = 1
   while true {
-    let c = peek(p, 0)
+    let c = p.peek(0)
     if is_eof_char(c) {
       p.line = initial_line
-      raise ArturoError::ParseError(
-        line=p.line,
-        message="unterminated curly string",
-      )
+      raise ParseError(line=p.line, message="unterminated curly string")
     } else if c == '{' {
       curlies += 1
       sb.write_char(c)
-      advance(p)
+      p.advance()
     } else if c == '}' {
       if curlies == 1 {
-        advance(p)
+        p.advance()
         break
       } else {
         curlies -= 1
         sb.write_char(c)
-        advance(p)
+        p.advance()
       }
     } else {
       sb.write_char(c)
-      advance(p)
+      p.advance()
     }
   }
   dedent_str(sb.to_string())
@@ -279,20 +273,20 @@ fn is_ident_char(c : Char) -> Bool {
 /// identifier. The first character is always skipped: with
 /// `add_current` it is included in the result (words), otherwise it is
 /// the leading marker (`'` literal, `:` type, `.` attribute).
-fn parse_identifier(p : Parser, add_current : Bool) -> String {
+fn Parser::parse_identifier(p : Parser, add_current : Bool) -> String {
   let sb = StringBuilder()
   if add_current {
-    sb.write_char(peek(p, 0))
+    sb.write_char(p.peek(0))
   }
-  advance(p)
+  p.advance()
   let initial = p.pos
-  while is_ident_char(peek(p, 0)) {
-    sb.write_char(peek(p, 0))
-    advance(p)
+  while is_ident_char(p.peek(0)) {
+    sb.write_char(p.peek(0))
+    p.advance()
   }
-  if peek(p, 0) == '?' && p.pos != initial {
+  if p.peek(0) == '?' && p.pos != initial {
     sb.write_string("?")
-    advance(p)
+    p.advance()
   }
   sb.to_string()
 }
@@ -300,26 +294,26 @@ fn parse_identifier(p : Parser, add_current : Bool) -> String {
 ///|
 /// Parse a number literal: decimal/hex/octal/binary integers,
 /// floating point (with or without scientific notation).
-fn parse_number(p : Parser) -> Value raise ArturoError {
+fn Parser::parse_number(p : Parser) -> Value raise ArturoError {
   let sb = StringBuilder()
-  let (num_base, already) = if peek(p, 0) == '0' {
-    match peek(p, 1) {
+  let (num_base, already) = if p.peek(0) == '0' {
+    match p.peek(1) {
       'x' | 'X' => {
         sb.write_string("0x")
-        advance(p)
-        advance(p)
+        p.advance()
+        p.advance()
         (16, true)
       }
       'b' | 'B' => {
         sb.write_string("0b")
-        advance(p)
-        advance(p)
+        p.advance()
+        p.advance()
         (2, true)
       }
       'o' | 'O' => {
         sb.write_string("0o")
-        advance(p)
-        advance(p)
+        p.advance()
+        p.advance()
         (8, true)
       }
       _ => (10, false)
@@ -332,55 +326,48 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     while (
             num_base == 16 &&
             (
-              (peek(p, 0) >= '0' && peek(p, 0) <= '9') ||
-              (peek(p, 0) >= 'a' && peek(p, 0) <= 'f') ||
-              (peek(p, 0) >= 'A' && peek(p, 0) <= 'F')
+              (p.peek(0) >= '0' && p.peek(0) <= '9') ||
+              (p.peek(0) >= 'a' && p.peek(0) <= 'f') ||
+              (p.peek(0) >= 'A' && p.peek(0) <= 'F')
             )
           ) ||
-          (num_base == 2 && "01".contains_char(peek(p, 0))) ||
-          (num_base == 8 && peek(p, 0) >= '0' && peek(p, 0) <= '7') {
-      sb.write_char(peek(p, 0))
-      advance(p)
+          (num_base == 2 && "01".contains_char(p.peek(0))) ||
+          (num_base == 8 && p.peek(0) >= '0' && p.peek(0) <= '7') {
+      sb.write_char(p.peek(0))
+      p.advance()
       count += 1
     }
     if count == 0 {
-      raise ArturoError::ParseError(
-        line=p.line,
-        message="invalid number literal",
-      )
+      raise ParseError(line=p.line, message="invalid number literal")
     }
     let text = sb.to_string()
     let digits = text[2:]
     let value = @string.parse_int(digits, base=num_base) catch {
-      _ =>
-        raise ArturoError::ParseError(
-          line=p.line,
-          message="invalid number literal",
-        )
+      _ => raise ParseError(line=p.line, message="invalid number literal")
     }
     return VInteger(value)
   }
   // decimal
   let mut dots = 0
-  while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
-    sb.write_char(peek(p, 0))
-    advance(p)
+  while p.peek(0) >= '0' && p.peek(0) <= '9' {
+    sb.write_char(p.peek(0))
+    p.advance()
   }
-  if peek(p, 0) == '.' && peek(p, 1) >= '0' && peek(p, 1) <= '9' {
+  if p.peek(0) == '.' && p.peek(1) >= '0' && p.peek(1) <= '9' {
     dots += 1
     sb.write_string(".")
-    advance(p)
-    while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
-      sb.write_char(peek(p, 0))
-      advance(p)
+    p.advance()
+    while p.peek(0) >= '0' && p.peek(0) <= '9' {
+      sb.write_char(p.peek(0))
+      p.advance()
     }
-    if peek(p, 0) == '.' && peek(p, 1) >= '0' && peek(p, 1) <= '9' {
+    if p.peek(0) == '.' && p.peek(1) >= '0' && p.peek(1) <= '9' {
       dots += 1
       sb.write_string(".")
-      advance(p)
-      while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
-        sb.write_char(peek(p, 0))
-        advance(p)
+      p.advance()
+      while p.peek(0) >= '0' && p.peek(0) <= '9' {
+        sb.write_char(p.peek(0))
+        p.advance()
       }
     }
   }
@@ -390,50 +377,38 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
     return VString(text)
   }
   // scientific notation
-  if "eE".contains_char(peek(p, 0)) &&
+  if "eE".contains_char(p.peek(0)) &&
     (
-      (peek(p, 1) >= '0' && peek(p, 1) <= '9') ||
-      ("+-".contains_char(peek(p, 1)) && peek(p, 2) >= '0' && peek(p, 2) <= '9')
+      (p.peek(1) >= '0' && p.peek(1) <= '9') ||
+      ("+-".contains_char(p.peek(1)) && p.peek(2) >= '0' && p.peek(2) <= '9')
     ) {
     sb.write_string("e")
-    advance(p)
-    if "+-".contains_char(peek(p, 0)) {
-      sb.write_char(peek(p, 0))
-      advance(p)
+    p.advance()
+    if "+-".contains_char(p.peek(0)) {
+      sb.write_char(p.peek(0))
+      p.advance()
     }
-    while peek(p, 0) >= '0' && peek(p, 0) <= '9' {
-      sb.write_char(peek(p, 0))
-      advance(p)
+    while p.peek(0) >= '0' && p.peek(0) <= '9' {
+      sb.write_char(p.peek(0))
+      p.advance()
     }
     let ftext = sb.to_string()
     let fval = @string.parse_double(ftext) catch {
-      _ =>
-        raise ArturoError::ParseError(
-          line=p.line,
-          message="invalid number literal",
-        )
+      _ => raise ParseError(line=p.line, message="invalid number literal")
     }
     return VFloating(fval)
   }
   if dots > 0 {
     let fval = @string.parse_double(text) catch {
-      _ =>
-        raise ArturoError::ParseError(
-          line=p.line,
-          message="invalid number literal",
-        )
+      _ => raise ParseError(line=p.line, message="invalid number literal")
     }
     return VFloating(fval)
   }
   if text == "" {
-    raise ArturoError::ParseError(line=p.line, message="invalid number literal")
+    raise ParseError(line=p.line, message="invalid number literal")
   }
   let ival = @string.parse_int(text) catch {
-    _ =>
-      raise ArturoError::ParseError(
-        line=p.line,
-        message="invalid number literal",
-      )
+    _ => raise ParseError(line=p.line, message="invalid number literal")
   }
   VInteger(ival)
 }
@@ -442,36 +417,39 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
 /// Parse an operator symbol: read the whole run of ASCII symbol
 /// characters. Any combination is accepted; evaluation decides what it
 /// means (`alias_lookup` in eval.mbt, unknown symbols stay symbols).
-fn parse_symbol(p : Parser) -> String {
-  let c = peek(p, 0)
-  if c == '#' && is_ident_char(peek(p, 1)) {
+fn Parser::parse_symbol(p : Parser) -> String {
+  let c = p.peek(0)
+  if c == '#' && is_ident_char(p.peek(1)) {
     // color literal — not supported in this subset
-    advance(p)
-    while is_ident_char(peek(p, 0)) {
-      advance(p)
+    p.advance()
+    while is_ident_char(p.peek(0)) {
+      p.advance()
     }
     return "#color"
   }
   let start = p.pos
-  while "+*/%^=<>!?~|&@#$-\\:.".contains_char(peek(p, 0)) {
-    advance(p)
+  while "+*/%^=<>!?~|&@#$-\\:.".contains_char(p.peek(0)) {
+    p.advance()
   }
   p.src[start:p.pos].to_owned()
 }
 
 ///|
 /// Parse a backslash path: `a\b`, `a\0`, `\key`, `a\[block]`.
-fn parse_path(p : Parser, root : Value) -> Array[Value] raise ArturoError {
+fn Parser::parse_path(
+  p : Parser,
+  root : Value,
+) -> Array[Value] raise ArturoError {
   let parts : Array[Value] = [root]
-  while peek(p, 0) == '\\' {
-    advance(p)
-    if is_ident_start(peek(p, 0)) {
-      parts.push(VLiteral(parse_identifier(p, true)))
-    } else if peek(p, 0) >= '0' && peek(p, 0) <= '9' {
-      parts.push(parse_number(p))
-    } else if peek(p, 0) == '[' {
-      advance(p)
-      parts.push(VBlock(parse_block(p, 0, true, false)))
+  while p.peek(0) == '\\' {
+    p.advance()
+    if is_ident_start(p.peek(0)) {
+      parts.push(VLiteral(p.parse_identifier(true)))
+    } else if p.peek(0) >= '0' && p.peek(0) <= '9' {
+      parts.push(p.parse_number())
+    } else if p.peek(0) == '[' {
+      p.advance()
+      parts.push(VBlock(p.parse_block(0, true, false)))
     } else {
       break
     }
@@ -480,7 +458,7 @@ fn parse_path(p : Parser, root : Value) -> Array[Value] raise ArturoError {
 }
 
 ///|
-fn parse_block(
+fn Parser::parse_block(
   p : Parser,
   level : Int,
   is_sub_block : Bool,
@@ -489,40 +467,34 @@ fn parse_block(
   let out : Array[Value] = []
   let initial_line = p.line
   while true {
-    skip(p)
-    let c = peek(p, 0)
+    p.skip()
+    let c = p.peek(0)
     if is_eof_char(c) {
       if level != 0 {
         p.line = initial_line
         if is_sub_block {
-          raise ArturoError::ParseError(
-            line=p.line,
-            message="missing closing `]`",
-          )
+          raise ParseError(line=p.line, message="missing closing `]`")
         } else {
-          raise ArturoError::ParseError(
-            line=p.line,
-            message="missing closing `)`",
-          )
+          raise ParseError(line=p.line, message="missing closing `)`")
         }
       }
       break
     } else if c == '"' {
-      let s = parse_string(p, '"')
-      if peek(p, 0) == ':' {
-        advance(p)
+      let s = p.parse_string('"')
+      if p.peek(0) == ':' {
+        p.advance()
         out.push(VLabel(s))
       } else {
         out.push(VString(s))
       }
     } else if c == '\'' {
       // literal, char or symbol-literal
-      let id = parse_identifier(p, false)
+      let id = p.parse_identifier(false)
       if id == "" {
-        if peek(p, 0) == '\\' {
+        if p.peek(0) == '\\' {
           // '\n style char escapes
-          advance(p)
-          let e = peek(p, 0)
+          p.advance()
+          let e = p.peek(0)
           let ch = match e {
             'n' => '\n'
             'r' => '\r'
@@ -534,24 +506,24 @@ fn parse_block(
             'e' => '\u{1b}'
             _ => e
           }
-          advance(p)
-          if peek(p, 0) == '\'' {
-            advance(p)
+          p.advance()
+          if p.peek(0) == '\'' {
+            p.advance()
           }
           out.push(VChar(ch))
         } else {
           // symbol literal: '+' etc.
-          out.push(VLiteral(parse_symbol(p)))
+          out.push(VLiteral(p.parse_symbol()))
         }
-      } else if peek(p, 0) == '\\' {
-        out.push(VPath(parse_path(p, VLiteral(id))))
-      } else if peek(p, 0) == '\'' {
+      } else if p.peek(0) == '\\' {
+        out.push(VPath(p.parse_path(VLiteral(id))))
+      } else if p.peek(0) == '\'' {
         // char: 'a'
-        advance(p)
+        p.advance()
         out.push(
           VChar(
             if id.length() > 0 {
-              Int::unsafe_to_char(id[0].to_int())
+              id[0].to_int().unsafe_to_char()
             } else {
               '\u{0}'
             },
@@ -561,9 +533,9 @@ fn parse_block(
         out.push(VLiteral(id))
       }
     } else if c >= '0' && c <= '9' {
-      let num = parse_number(p)
-      if peek(p, 0) == ':' {
-        raise ArturoError::ParseError(
+      let num = p.parse_number()
+      if p.peek(0) == ':' {
+        raise ParseError(
           line=p.line,
           message="rational literals are not supported in this subset",
         )
@@ -572,37 +544,37 @@ fn parse_block(
     } else if c == ':' {
       // `:ident` is a type; otherwise the whole run (`::`, `:=`, ...)
       // is a symbol, parsed by `parse_symbol` from the colon itself
-      if is_ident_start(peek(p, 1)) {
-        out.push(VType(parse_identifier(p, false)))
+      if is_ident_start(p.peek(1)) {
+        out.push(VType(p.parse_identifier(false)))
       } else {
-        out.push(VSymbol(parse_symbol(p)))
+        out.push(VSymbol(p.parse_symbol()))
       }
     } else if c == '.' {
       // only `.ident` / `.ident: value` are attributes; every other
       // dot-prefixed run (`..`, `...`, `./`, ...) is a symbol
-      if is_ident_start(peek(p, 1)) {
-        let id = parse_identifier(p, false)
-        if peek(p, 0) == ':' {
-          advance(p)
+      if is_ident_start(p.peek(1)) {
+        let id = p.parse_identifier(false)
+        if p.peek(0) == ':' {
+          p.advance()
           out.push(VAttributeLabel(id))
         } else {
           out.push(VAttribute(id))
         }
       } else {
-        out.push(VSymbol(parse_symbol(p)))
+        out.push(VSymbol(p.parse_symbol()))
       }
     } else if is_ident_start(c) {
-      let id = parse_identifier(p, true)
+      let id = p.parse_identifier(true)
       if id == "_" {
         out.push(VSymbol("_"))
-      } else if peek(p, 0) == ':' {
-        advance(p)
+      } else if p.peek(0) == ':' {
+        p.advance()
         out.push(VLabel(id))
-      } else if peek(p, 0) == '\\' {
-        let path = parse_path(p, VWord(id))
-        if peek(p, 0) == ':' {
+      } else if p.peek(0) == '\\' {
+        let path = p.parse_path(VWord(id))
+        if p.peek(0) == ':' {
           // path label: `d\key: value` stores through the path
-          advance(p)
+          p.advance()
           out.push(VPathLabel(path))
         } else {
           out.push(VPath(path))
@@ -611,64 +583,58 @@ fn parse_block(
         out.push(VWord(id))
       }
     } else if c == '\\' {
-      if is_ident_start(peek(p, 1)) || peek(p, 1) == '[' {
-        let path = parse_path(p, VWord("this"))
-        if peek(p, 0) == ':' {
-          advance(p)
+      if is_ident_start(p.peek(1)) || p.peek(1) == '[' {
+        let path = p.parse_path(VWord("this"))
+        if p.peek(0) == ':' {
+          p.advance()
           out.push(VLabel(path.map(Show::to_string).join("\\")))
         } else {
           out.push(VPath(path))
         }
       } else {
-        out.push(VSymbol(parse_symbol(p)))
+        out.push(VSymbol(p.parse_symbol()))
       }
     } else if c == '[' {
-      advance(p)
-      out.push(VBlock(parse_block(p, level + 1, true, false)))
+      p.advance()
+      out.push(VBlock(p.parse_block(level + 1, true, false)))
     } else if c == ']' {
       if is_sub_block {
-        advance(p)
+        p.advance()
         break
       } else if is_sub_inline {
         p.line = initial_line
-        raise ArturoError::ParseError(
-          line=p.line,
-          message="missing closing `)`",
-        )
+        raise ParseError(line=p.line, message="missing closing `)`")
       } else {
-        raise ArturoError::ParseError(line=p.line, message="stray `]`")
+        raise ParseError(line=p.line, message="stray `]`")
       }
     } else if c == '(' {
-      advance(p)
-      out.push(VInline(parse_block(p, level + 1, false, true)))
+      p.advance()
+      out.push(VInline(p.parse_block(level + 1, false, true)))
     } else if c == ')' {
       if is_sub_inline {
-        advance(p)
+        p.advance()
         break
       } else if is_sub_block {
         p.line = initial_line
-        raise ArturoError::ParseError(
-          line=p.line,
-          message="missing closing `]`",
-        )
+        raise ParseError(line=p.line, message="missing closing `]`")
       } else {
-        raise ArturoError::ParseError(line=p.line, message="stray `)`")
+        raise ParseError(line=p.line, message="stray `)`")
       }
     } else if c == '{' {
-      let s = parse_curly_string(p)
-      if peek(p, 0) == ':' {
-        advance(p)
+      let s = p.parse_curly_string()
+      if p.peek(0) == ':' {
+        p.advance()
         out.push(VLabel(s))
       } else {
         out.push(VString(s))
       }
     } else if c == '}' {
-      raise ArturoError::ParseError(line=p.line, message="stray `}`")
+      raise ParseError(line=p.line, message="stray `}`")
     } else if "+*/%^=<>!?~|&@#$-\\:.".contains_char(c) {
-      out.push(VSymbol(parse_symbol(p)))
+      out.push(VSymbol(p.parse_symbol()))
     } else {
       // unknown character: skip it
-      advance(p)
+      p.advance()
     }
   }
   out
@@ -677,6 +643,6 @@ fn parse_block(
 ///|
 /// Parse Arturo source code into a block of raw values.
 pub fn parse(source : String) -> Value raise ArturoError {
-  let p = parser_new(source)
-  VBlock(parse_block(p, 0, false, false))
+  let p = Parser(source)
+  VBlock(p.parse_block(0, false, false))
 }

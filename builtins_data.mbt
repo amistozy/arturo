@@ -11,7 +11,7 @@ fn iterable_items(v : Value, ctx : Ctx) -> Array[Value] raise ArturoError {
   match v {
     VBlock(items) => items
     VInline(items) => items
-    VRange(r) => range_values(r, ctx)
+    VRange(r) => r.values(ctx)
     VInteger(n) => {
       let out : Array[Value] = []
       for i in 1..<=n {
@@ -40,10 +40,10 @@ fn iterable_items(v : Value, ctx : Ctx) -> Array[Value] raise ArturoError {
 }
 
 ///|
-fn range_values(r : RangeVal, ctx : Ctx) -> Array[Value] raise ArturoError {
+fn RangeVal::values(r : RangeVal, ctx : Ctx) -> Array[Value] raise ArturoError {
   let out : Array[Value] = []
   if r.infinite {
-    raise rt_err(ctx, "cannot iterate over an infinite range")
+    raise ctx.rt_err("cannot iterate over an infinite range")
   }
   let step = if r.forward { r.step } else { -r.step }
   let mut v = r.start
@@ -153,7 +153,7 @@ fn action_result(action : Value, ctx : Ctx) -> Value raise ArturoError {
     VBlock(blk) => {
       let before = ctx.stack.length()
       eval_block(blk, ctx)
-      let r = pop_or_null(ctx)
+      let r = ctx.pop_or_null()
       while ctx.stack.length() > before {
         ignore(ctx.stack.pop())
       }
@@ -162,7 +162,7 @@ fn action_result(action : Value, ctx : Ctx) -> Value raise ArturoError {
     VInline(blk) => {
       let before = ctx.stack.length()
       eval_block(blk, ctx)
-      let r = pop_or_null(ctx)
+      let r = ctx.pop_or_null()
       while ctx.stack.length() > before {
         ignore(ctx.stack.pop())
       }
@@ -173,14 +173,14 @@ fn action_result(action : Value, ctx : Ctx) -> Value raise ArturoError {
 }
 
 ///|
-fn with_attr(ctx : Ctx) -> Value? {
+fn Ctx::with_attr(ctx : Ctx) -> Value? {
   attr_get(ctx.current_attrs.val, "with")
 }
 
 ///|
 /// `loop collection params action`.
 fn b_loop(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (_group, ctx2) => {
+  iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (_group, ctx2) => {
     match args[2] {
       VBlock(blk) => {
         eval_block(blk, ctx2)
@@ -199,7 +199,7 @@ fn b_loop(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `map collection params action`.
 fn b_map(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let res : Array[Value] = []
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (_group, ctx2) => {
+  iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (_group, ctx2) => {
     res.push(action_result(args[2], ctx2))
   })
   ctx.push(VBlock(res))
@@ -213,7 +213,7 @@ fn b_select(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let first_attr = attr_get(ctx.current_attrs.val, "first")
   let last_attr = attr_get(ctx.current_attrs.val, "last")
   let res : Array[Value] = []
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (group, ctx2) => {
+  iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (group, ctx2) => {
     let v = action_result(args[2], ctx2)
     if is_truthy(v) {
       res.push(group[0])
@@ -237,7 +237,7 @@ fn b_select(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// condition holds.
 fn b_filter(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let res : Array[Value] = []
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (group, ctx2) => {
+  iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (group, ctx2) => {
     let v = action_result(args[2], ctx2)
     if !is_truthy(v) {
       res.push(group[0])
@@ -250,7 +250,7 @@ fn b_filter(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `every? collection params condition`.
 fn b_everyq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let mut ok = true
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (_group, ctx2) => {
+  iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (_group, ctx2) => {
     let v = action_result(args[2], ctx2)
     if !is_truthy(v) {
       ok = false
@@ -264,7 +264,7 @@ fn b_everyq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `some? collection params condition`.
 fn b_someq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let mut found = false
-  iterate_groups(args[0], args[1], ctx, with_attr(ctx), (_group, ctx2) => {
+  iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (_group, ctx2) => {
     let v = action_result(args[2], ctx2)
     if is_truthy(v) {
       found = true
@@ -322,9 +322,8 @@ fn b_size(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VChar(_) => ctx.push(VInteger(1))
     VNull => ctx.push(VInteger(0))
     _ =>
-      raise rt_err(
-        ctx,
-        "wrong argument type: expected collection, got \{type_name(args[0])}",
+      raise ctx.rt_err(
+        "wrong argument type: expected collection, got \{args[0].type_name()}",
       )
   }
 }
@@ -434,7 +433,7 @@ fn b_last(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
           }
         VRange(r) =>
           if r.numeric && !r.infinite {
-            let vals = range_values(r, ctx)
+            let vals = r.values(ctx)
             if vals.length() > 0 {
               ctx.push(vals[vals.length() - 1])
             } else {
@@ -451,7 +450,7 @@ fn b_last(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 ///|
 /// In-place update helper: for literal arguments, fetch the symbol,
 /// transform and store back; returns whether the argument was a literal.
-fn maybe_inplace(ctx : Ctx, x : Value, f : (Value) -> Value) -> Bool {
+fn Ctx::maybe_inplace(ctx : Ctx, x : Value, f : (Value) -> Value) -> Bool {
   match x {
     VLiteral(s) | VWord(s) =>
       match ctx.env.get(s) {
@@ -468,7 +467,7 @@ fn maybe_inplace(ctx : Ctx, x : Value, f : (Value) -> Value) -> Bool {
 ///|
 /// `append x y` (also `++`).
 fn b_append(ctx : Ctx, args : Array[Value]) -> Unit {
-  if maybe_inplace(ctx, args[0], v => append_value(v, args[1])) {
+  if ctx.maybe_inplace(args[0], v => append_value(v, args[1])) {
     return
   }
   ctx.push(append_value(args[0], args[1]))
@@ -495,7 +494,7 @@ fn append_value(x : Value, y : Value) -> Value {
 ///|
 /// `prepend x y`.
 fn b_prepend(ctx : Ctx, args : Array[Value]) -> Unit {
-  if maybe_inplace(ctx, args[0], v => prepend_value(v, args[1])) {
+  if ctx.maybe_inplace(args[0], v => prepend_value(v, args[1])) {
     return
   }
   ctx.push(prepend_value(args[0], args[1]))
@@ -548,7 +547,7 @@ fn b_pop(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `remove x y` (also `--`) — remove elements equal to `y` from a
 /// block, or the first occurrence of the substring from a string.
 fn b_remove(ctx : Ctx, args : Array[Value]) -> Unit {
-  if maybe_inplace(ctx, args[0], v => remove_value(v, args[1])) {
+  if ctx.maybe_inplace(args[0], v => remove_value(v, args[1])) {
     return
   }
   ctx.push(remove_value(args[0], args[1]))
@@ -663,7 +662,7 @@ fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         _ => ctx.push(VLogical(false))
       }
     VRange(r) => {
-      let items = range_values(r, ctx)
+      let items = r.values(ctx)
       ctx.push(VLogical(items.iter().any(v => v == args[1])))
     }
     _ => ctx.push(VLogical(false))
@@ -688,7 +687,7 @@ fn b_inq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         _ => ctx.push(VLogical(false))
       }
     VRange(r) => {
-      let items = range_values(r, ctx)
+      let items = r.values(ctx)
       ctx.push(VLogical(items.iter().any(v => v == item)))
     }
     _ => ctx.push(VLogical(false))
@@ -747,7 +746,7 @@ fn b_range(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let (start, numeric) = match x {
     VInteger(i) => (i, true)
     VChar(c) => (c.to_int(), false)
-    _ => raise rt_err(ctx, "wrong argument type for range")
+    _ => raise ctx.rt_err("wrong argument type for range")
   }
   let (stop, infinite) = match y {
     VInteger(i) => (i, false)
@@ -758,12 +757,12 @@ fn b_range(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         (f.to_int(), false)
       }
     VChar(c) => (c.to_int(), false)
-    _ => raise rt_err(ctx, "wrong argument type for range")
+    _ => raise ctx.rt_err("wrong argument type for range")
   }
   let step = match attr_get(ctx.current_attrs.val, "step") {
     Some(VInteger(s)) =>
       if s == 0 {
-        raise rt_err(ctx, "range with zero step")
+        raise ctx.rt_err("range with zero step")
       } else {
         s.abs()
       }
@@ -777,7 +776,7 @@ fn b_range(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `array value` (also `@`) — evaluate a block, expand a range.
 fn b_array(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
-    VRange(r) => ctx.push(VBlock(range_values(r, ctx)))
+    VRange(r) => ctx.push(VBlock(r.values(ctx)))
     VBlock(blk) => {
       let vals = eval_block_values(blk, ctx)
       ctx.push(VBlock(vals))
@@ -1011,7 +1010,7 @@ fn b_slice(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
     }
     VRange(r) => {
-      let items = range_values(r, ctx)
+      let items = r.values(ctx)
       let lo = if from < 0 { 0 } else { from }
       let hi = if to > items.length() { items.length() } else { to }
       ctx.push(VBlock(items[lo:hi].to_owned()))
@@ -1029,7 +1028,7 @@ fn b_max(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     return
   }
   let best = items[1:].fold(init=items[0], (best, v) => {
-    if cmp_values(ctx, v, best) > 0 {
+    if ctx.cmp_values(v, best) > 0 {
       v
     } else {
       best
@@ -1046,7 +1045,7 @@ fn b_min(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     return
   }
   let best = items[1:].fold(init=items[0], (best, v) => {
-    if cmp_values(ctx, v, best) < 0 {
+    if ctx.cmp_values(v, best) < 0 {
       v
     } else {
       best
@@ -1097,7 +1096,7 @@ fn b_upper(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VString(s) => ctx.push(VString(s.to_upper()))
     VChar(c) => ctx.push(VChar(c.to_ascii_uppercase()))
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1106,7 +1105,7 @@ fn b_lower(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VString(s) => ctx.push(VString(s.to_lower()))
     VChar(c) => ctx.push(VChar(c.to_ascii_lowercase()))
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1120,7 +1119,7 @@ fn b_capitalize(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       } else {
         ctx.push(VString(""))
       }
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1142,8 +1141,7 @@ fn b_join(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   }
   match args[0] {
     VBlock(items) => ctx.push(VString(items.map(Show::to_string).join(sep)))
-    VRange(r) =>
-      ctx.push(VString(range_values(r, ctx).map(Show::to_string).join(sep)))
+    VRange(r) => ctx.push(VString(r.values(ctx).map(Show::to_string).join(sep)))
     _ => ctx.push(VString(args[0].to_string()))
   }
 }
@@ -1263,7 +1261,7 @@ fn num1(
   match args[0] {
     VInteger(i) => ctx.push(VFloating(f(i.to_double())))
     VFloating(x) => ctx.push(VFloating(f(x)))
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1272,7 +1270,7 @@ fn b_abs(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VInteger(i) => ctx.push(VInteger(i.abs()))
     VFloating(f) => ctx.push(VFloating(f.abs()))
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1281,7 +1279,7 @@ fn b_floor(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VInteger(i) => ctx.push(VInteger(i))
     VFloating(f) => ctx.push(VInteger(f.floor().to_int()))
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1290,7 +1288,7 @@ fn b_ceil(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VInteger(i) => ctx.push(VInteger(i))
     VFloating(f) => ctx.push(VInteger(f.ceil().to_int()))
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1299,7 +1297,7 @@ fn b_round(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VInteger(i) => ctx.push(VInteger(i))
     VFloating(f) => ctx.push(VFloating(f.round()))
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1322,7 +1320,7 @@ fn b_sign(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       ctx.push(
         VFloating(if f > 0.0 { 1.0 } else if f < 0.0 { -1.0 } else { 0.0 }),
       )
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1330,7 +1328,7 @@ fn b_sign(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_evenq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match as_int(args[0]) {
     Some(i) => ctx.push(VLogical(i % 2 == 0))
-    None => raise rt_err(ctx, "wrong argument type")
+    None => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1338,7 +1336,7 @@ fn b_evenq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_oddq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match as_int(args[0]) {
     Some(i) => ctx.push(VLogical(i % 2 != 0))
-    None => raise rt_err(ctx, "wrong argument type")
+    None => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1383,7 +1381,7 @@ fn b_primeq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         }
         ctx.push(VLogical(prime))
       }
-    None => raise rt_err(ctx, "wrong argument type")
+    None => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1398,7 +1396,7 @@ fn b_factorial(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
       ctx.push(VInteger(acc))
     }
-    None => raise rt_err(ctx, "wrong argument type")
+    None => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1413,7 +1411,7 @@ fn b_digits(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
       ctx.push(VBlock(out))
     }
-    None => raise rt_err(ctx, "wrong argument type")
+    None => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1430,7 +1428,7 @@ fn b_gcd(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       }
       ctx.push(VInteger(x))
     }
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -1458,7 +1456,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
             ctx.push(VInteger(0))
           } else {
             let v = @string.parse_int(t) catch {
-              _ => raise rt_err(ctx, "cannot convert to :integer: \{s}")
+              _ => raise ctx.rt_err("cannot convert to :integer: \{s}")
             }
             ctx.push(VInteger(v))
           }
@@ -1467,11 +1465,11 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         VChar(c) => ctx.push(VInteger(c.to_int()))
         VRange(r) =>
           if r.numeric && !r.infinite {
-            ctx.push(VBlock(range_values(r, ctx)))
+            ctx.push(VBlock(r.values(ctx)))
           } else {
-            raise rt_err(ctx, "cannot convert to :integer")
+            raise ctx.rt_err("cannot convert to :integer")
           }
-        _ => raise rt_err(ctx, "cannot convert to :integer")
+        _ => raise ctx.rt_err("cannot convert to :integer")
       }
     "floating" =>
       match x {
@@ -1479,11 +1477,11 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         VFloating(f) => ctx.push(VFloating(f))
         VString(s) => {
           let v = @string.parse_double(s.trim()) catch {
-            _ => raise rt_err(ctx, "cannot convert to :floating: \{s}")
+            _ => raise ctx.rt_err("cannot convert to :floating: \{s}")
           }
           ctx.push(VFloating(v))
         }
-        _ => raise rt_err(ctx, "cannot convert to :floating")
+        _ => raise ctx.rt_err("cannot convert to :floating")
       }
     "string" =>
       match x {
@@ -1499,9 +1497,9 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
           if s.length() > 0 {
             ctx.push(VChar(Int::unsafe_to_char(s[0].to_int())))
           } else {
-            raise rt_err(ctx, "cannot convert to :char")
+            raise ctx.rt_err("cannot convert to :char")
           }
-        _ => raise rt_err(ctx, "cannot convert to :char")
+        _ => raise ctx.rt_err("cannot convert to :char")
       }
     "logical" =>
       match x {
@@ -1513,7 +1511,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     "block" =>
       match x {
         VBlock(items) => ctx.push(VBlock(items))
-        VRange(r) => ctx.push(VBlock(range_values(r, ctx)))
+        VRange(r) => ctx.push(VBlock(r.values(ctx)))
         VString(s) => {
           let out : Array[Value] = []
           for c in s {
@@ -1545,29 +1543,29 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
                     forward: a < b,
                   }),
                 )
-              _ => raise rt_err(ctx, "cannot convert to :range")
+              _ => raise ctx.rt_err("cannot convert to :range")
             }
           } else {
-            raise rt_err(ctx, "cannot convert to :range")
+            raise ctx.rt_err("cannot convert to :range")
           }
-        _ => raise rt_err(ctx, "cannot convert to :range")
+        _ => raise ctx.rt_err("cannot convert to :range")
       }
-    "type" => ctx.push(VType(type_name(x)))
-    _ => raise rt_err(ctx, "unknown target type: :\{target}")
+    "type" => ctx.push(VType(x.type_name()))
+    _ => raise ctx.rt_err("unknown target type: :\{target}")
   }
 }
 
 ///|
 /// `type value` — the value's type.
 fn b_type(ctx : Ctx, args : Array[Value]) -> Unit {
-  ctx.push(type_of(args[0]))
+  ctx.push(args[0].type_of())
 }
 
 ///|
 /// `is? value :type` — type check.
 fn b_isq(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[1] {
-    VType(t) => ctx.push(VLogical(type_name(args[0]) == t))
+    VType(t) => ctx.push(VLogical(args[0].type_name() == t))
     _ => ctx.push(VLogical(false))
   }
 }

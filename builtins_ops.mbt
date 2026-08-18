@@ -10,38 +10,37 @@ fn num_args(
   let a = match as_float(args[0]) {
     Some(x) => x
     None =>
-      raise rt_err(
-        ctx,
-        "wrong argument type: expected number, got \{type_name(args[0])}",
+      raise ctx.rt_err(
+        "wrong argument type: expected number, got \{args[0].type_name()}",
       )
   }
   let b = match as_float(args[1]) {
     Some(x) => x
     None =>
-      raise rt_err(
-        ctx,
-        "wrong argument type: expected number, got \{type_name(args[1])}",
+      raise ctx.rt_err(
+        "wrong argument type: expected number, got \{args[1].type_name()}",
       )
   }
   (a, b)
 }
 
 ///|
-fn int_args(ctx : Ctx, args : Array[Value]) -> (Int, Int) raise ArturoError {
+fn Ctx::int_args(
+  ctx : Ctx,
+  args : Array[Value],
+) -> (Int, Int) raise ArturoError {
   let a = match as_int(args[0]) {
     Some(x) => x
     None =>
-      raise rt_err(
-        ctx,
-        "wrong argument type: expected integer, got \{type_name(args[0])}",
+      raise ctx.rt_err(
+        "wrong argument type: expected integer, got \{args[0].type_name()}",
       )
   }
   let b = match as_int(args[1]) {
     Some(x) => x
     None =>
-      raise rt_err(
-        ctx,
-        "wrong argument type: expected integer, got \{type_name(args[1])}",
+      raise ctx.rt_err(
+        "wrong argument type: expected integer, got \{args[1].type_name()}",
       )
   }
   (a, b)
@@ -236,9 +235,8 @@ fn b_neg(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VInteger(a) => ctx.push(VInteger(-a))
     VFloating(a) => ctx.push(VFloating(-a))
     _ =>
-      raise rt_err(
-        ctx,
-        "wrong argument type: expected number, got \{type_name(args[0])}",
+      raise ctx.rt_err(
+        "wrong argument type: expected number, got \{args[0].type_name()}",
       )
   }
 }
@@ -252,9 +250,9 @@ fn b_inc(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       match ctx.env.get(s) {
         Some(VInteger(a)) => ctx.env.set(s, VInteger(a + 1))
         Some(VFloating(a)) => ctx.env.set(s, VFloating(a + 1.0))
-        _ => raise rt_err(ctx, "wrong argument type")
+        _ => raise ctx.rt_err("wrong argument type")
       }
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
@@ -267,21 +265,21 @@ fn b_dec(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       match ctx.env.get(s) {
         Some(VInteger(a)) => ctx.env.set(s, VInteger(a - 1))
         Some(VFloating(a)) => ctx.env.set(s, VFloating(a - 1.0))
-        _ => raise rt_err(ctx, "wrong argument type")
+        _ => raise ctx.rt_err("wrong argument type")
       }
-    _ => raise rt_err(ctx, "wrong argument type")
+    _ => raise ctx.rt_err("wrong argument type")
   }
 }
 
 ///|
 fn b_divmod(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  let (a, b) = int_args(ctx, args)
+  let (a, b) = ctx.int_args(args)
   ctx.push(VBlock([VInteger(a / b), VInteger(a % b)]))
 }
 
 ///|
 /// Comparison.
-fn cmp_values(ctx : Ctx, a : Value, b : Value) -> Int raise ArturoError {
+fn Ctx::cmp_values(ctx : Ctx, a : Value, b : Value) -> Int raise ArturoError {
   match (as_float(a), as_float(b)) {
     (Some(x), Some(y)) => x.compare(y)
     _ =>
@@ -289,9 +287,8 @@ fn cmp_values(ctx : Ctx, a : Value, b : Value) -> Int raise ArturoError {
         (VChar(x), VChar(y)) => x.compare(y)
         (VString(x), VString(y)) => compare_strings(x, y)
         _ =>
-          raise rt_err(
-            ctx,
-            "cannot compare \{type_name(a)} with \{type_name(b)}",
+          raise ctx.rt_err(
+            "cannot compare \{a.type_name()} with \{b.type_name()}",
           )
       }
   }
@@ -320,7 +317,7 @@ fn b_not_equalq(ctx : Ctx, args : Array[Value]) -> Unit {
 
 ///|
 fn b_greaterq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  ctx.push(VLogical(cmp_values(ctx, args[0], args[1]) > 0))
+  ctx.push(VLogical(ctx.cmp_values(args[0], args[1]) > 0))
 }
 
 ///|
@@ -328,17 +325,17 @@ fn b_greater_or_equalq(
   ctx : Ctx,
   args : Array[Value],
 ) -> Unit raise ArturoError {
-  ctx.push(VLogical(cmp_values(ctx, args[0], args[1]) >= 0))
+  ctx.push(VLogical(ctx.cmp_values(args[0], args[1]) >= 0))
 }
 
 ///|
 fn b_lessq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  ctx.push(VLogical(cmp_values(ctx, args[0], args[1]) < 0))
+  ctx.push(VLogical(ctx.cmp_values(args[0], args[1]) < 0))
 }
 
 ///|
 fn b_less_or_equalq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  ctx.push(VLogical(cmp_values(ctx, args[0], args[1]) <= 0))
+  ctx.push(VLogical(ctx.cmp_values(args[0], args[1]) <= 0))
 }
 
 ///|

@@ -343,13 +343,13 @@ fn type_predicate_match(name : String, ctx : Ctx, args : Array[Value]) -> Unit {
   if t == "" {
     ctx.push(VLogical(false))
   } else {
-    ctx.push(VLogical(type_name(args[0]) == t))
+    ctx.push(VLogical(args[0].type_name() == t))
   }
 }
 
 ///|
 /// Seed the environment with the builtins and the constants.
-fn seed_env(env : Env) -> Unit {
+fn Env::seed(env : Env) -> Unit {
   for name, _arity in builtin_arities {
     env.syms[name] = VFunction(BuiltinFunction(name~))
   }
@@ -385,7 +385,7 @@ fn eval_top(blk : Array[Value], ctx : Ctx) -> Value raise ArturoError {
 pub fn run(source : String) -> RunResult raise ArturoError {
   let parsed = parse(source)
   let ctx = Ctx::new()
-  seed_env(ctx.env)
+  ctx.env.seed()
   match parsed {
     VBlock(blk) => {
       let value = eval_top(blk, ctx)
@@ -402,7 +402,7 @@ pub fn run(source : String) -> RunResult raise ArturoError {
 pub fn run_with(env : Env, source : String) -> RunResult raise ArturoError {
   let parsed = parse(source)
   let ctx = Ctx::with_env(env)
-  seed_env(ctx.env)
+  ctx.env.seed()
   match parsed {
     VBlock(blk) => {
       let value = eval_top(blk, ctx)
@@ -416,7 +416,7 @@ pub fn run_with(env : Env, source : String) -> RunResult raise ArturoError {
 /// Create a fresh environment (pre-seeded with the builtins).
 pub fn new_env() -> Env {
   let env = Env::new()
-  seed_env(env)
+  env.seed()
   env
 }
 

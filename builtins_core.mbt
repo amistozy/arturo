@@ -382,7 +382,7 @@ fn b_ensure(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VBlock(blk) => {
       let v = eval_block_last(blk, ctx)
       if !is_truthy(v) {
-        raise rt_err(ctx, "assertion failed: \{VBlock(blk)}")
+        raise ctx.rt_err("assertion failed: \{VBlock(blk)}")
       }
     }
     _ => ()
@@ -516,7 +516,7 @@ fn inspect_value(
       out.write_string("]")
     }
     VFunction(_) => out.write_string("\{v} :function")
-    _ => out.write_string("\{v} :\{type_name(v)}")
+    _ => out.write_string("\{v} :\{v.type_name()}")
   }
 }
 
