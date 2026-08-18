@@ -80,8 +80,8 @@ priv struct Ctx {
   stack : Array[Value]
   env : Env
   out : StringBuilder
-  mut pending_attrs : Array[(String, Value)]?
-  mut current_attrs : Array[(String, Value)]
+  mut pending_attrs : Map[String, Value]?
+  mut current_attrs : Map[String, Value]
 }
 
 ///|
@@ -91,7 +91,7 @@ fn Ctx::Ctx() -> Ctx {
     env: Env::empty(),
     out: StringBuilder(),
     pending_attrs: None,
-    current_attrs: [],
+    current_attrs: Map([]),
   }
 }
 
@@ -102,7 +102,7 @@ fn Ctx::with_env(env : Env) -> Ctx {
     env,
     out: StringBuilder(),
     pending_attrs: None,
-    current_attrs: [],
+    current_attrs: Map([]),
   }
 }
 
@@ -287,7 +287,7 @@ fn eval_expr(
       }
     VAttribute(name) => {
       match ctx.pending_attrs {
-        Some(attrs) => attrs.push((name, VLogical(true)))
+        Some(attrs) => attrs[name] = VLogical(true)
         None => ()
       }
       eval_infix_tail(rest, ctx)
@@ -297,7 +297,7 @@ fn eval_expr(
         [] => {
           // a trailing attribute-label records null
           match ctx.pending_attrs {
-            Some(attrs) => attrs.push((name, VNull))
+            Some(attrs) => attrs[name] = VNull
             None => ()
           }
           []
@@ -306,7 +306,7 @@ fn eval_expr(
           let rest2 = eval_expr(rest, ctx)
           let v = ctx.pop_or_null()
           match ctx.pending_attrs {
-            Some(attrs) => attrs.push((name, v))
+            Some(attrs) => attrs[name] = v
             None => ()
           }
           eval_infix_tail(rest2, ctx)
@@ -341,7 +341,7 @@ fn eval_infix_tail(
   }
   let arity = fun_arity(fun)
   let saved = ctx.pending_attrs
-  ctx.pending_attrs = Some([])
+  ctx.pending_attrs = Some(Map([]))
   let args_rest = for args_rest = rest, consumed = 0; consumed < arity - 1; {
     match args_rest {
       [] => raise RuntimeError(message="not enough arguments for operator \{s}")
@@ -353,7 +353,7 @@ fn eval_infix_tail(
   } nobreak {
     args_rest
   }
-  let attrs = ctx.pending_attrs.unwrap_or([])
+  let attrs = ctx.pending_attrs.unwrap_or(Map([]))
   ctx.pending_attrs = saved
   let args = ctx.pop_args(arity)
   invoke(fun, args, ctx, s, attrs~)
@@ -367,7 +367,8 @@ fn Ctx::pop_args(ctx : Ctx, n : Int) -> Array[Value] raise ArturoError {
   for _ in 0..<n {
     args.push(ctx.pop())
   }
-  args.rev()
+  args.rev_in_place()
+  args
 }
 
 ///|
@@ -451,7 +452,7 @@ fn form_call_by_name(
   }
   let arity = fun_arity(fun)
   let saved = ctx.pending_attrs
-  ctx.pending_attrs = Some([])
+  ctx.pending_attrs = Some(Map([]))
   let to_consume = if piped { arity - 1 } else { arity }
   let rest = for rest = blk, consumed = 0; consumed < to_consume; {
     match rest {
@@ -464,10 +465,7 @@ fn form_call_by_name(
   } nobreak {
     rest
   }
-  let attrs = match ctx.pending_attrs {
-    Some(x) => x
-    None => []
-  }
+  let attrs = ctx.pending_attrs.unwrap_or(Map([]))
   ctx.pending_attrs = saved
   let args = ctx.pop_args(arity)
   invoke(fun, args, ctx, name, attrs~)
@@ -482,7 +480,7 @@ fn invoke(
   args : Array[Value],
   ctx : Ctx,
   name : String,
-  attrs? : Array[(String, Value)] = [],
+  attrs? : Map[String, Value] = Map([]),
 ) -> Unit raise ArturoError {
   match fun {
     VFunction(UserFunction(params~, main~, ..)) =>
@@ -513,7 +511,7 @@ fn call_user(
   main : Array[Value],
   args : Array[Value],
   ctx : Ctx,
-  attrs : Array[(String, Value)],
+  attrs : Map[String, Value],
 ) -> Unit raise ArturoError {
   ctx.env.push_scope()
   for i = 0; i < params.length() && i < args.length(); i = i + 1 {
@@ -983,19 +981,6 @@ fn exec_dictionary(
     }
   }
   out
-}
-
-///|
-fn attr_get(attrs : Array[(String, Value)], name : String) -> Value? {
-  match attrs.iter().find_first(kv => kv.0 == name) {
-    Some(kv) => Some(kv.1)
-    None => None
-  }
-}
-
-///|
-fn attr_has(attrs : Array[(String, Value)], name : String) -> Bool {
-  attrs.iter().any(kv => kv.0 == name)
 }
 
 ///|

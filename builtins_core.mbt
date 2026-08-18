@@ -124,7 +124,7 @@ fn b_when(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     _ => []
   }
   let pairs = eval_block_values(blk, ctx)
-  let with_any = attr_has(ctx.current_attrs, "any")
+  let with_any = ctx.current_attrs.contains("any")
   let mut i = 0
   while i + 1 < pairs.length() {
     let cond = match pairs[i] {
@@ -193,7 +193,7 @@ fn b_case(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 ///|
 /// `do code` — evaluate a string or block.
 fn b_do(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  let times = attr_get(ctx.current_attrs, "times")
+  let times = ctx.current_attrs.get("times")
   let n = match times {
     Some(VInteger(t)) => if t > 0 { t } else { 1 }
     _ => 1
@@ -410,7 +410,7 @@ fn b_coalesce(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `print value` — with a newline; blocks are evaluated and their
 /// pushed values are joined with spaces.
 fn b_print(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  let in_lines = attr_has(ctx.current_attrs, "lines")
+  let in_lines = ctx.current_attrs.contains("lines")
   match args[0] {
     VBlock(blk) => {
       let vals = eval_block_values(blk, ctx)
@@ -595,7 +595,7 @@ fn b_parse(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_attr(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
     VLiteral(s) | VWord(s) =>
-      ctx.push(attr_get(ctx.current_attrs, s).unwrap_or(VNull))
+      ctx.push(ctx.current_attrs.get(s).unwrap_or(VNull))
     _ => ctx.push(VNull)
   }
 }
@@ -603,7 +603,7 @@ fn b_attr(ctx : Ctx, args : Array[Value]) -> Unit {
 ///|
 fn b_attrq(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
-    VLiteral(s) | VWord(s) => ctx.push(VLogical(attr_has(ctx.current_attrs, s)))
+    VLiteral(s) | VWord(s) => ctx.push(VLogical(ctx.current_attrs.contains(s)))
     _ => ctx.push(VLogical(false))
   }
 }
