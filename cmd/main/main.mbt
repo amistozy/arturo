@@ -17,7 +17,7 @@
 async fn main {
   let argv = @env.args()
   // native argv includes the program name as its first element
-  let args = if argv.length() > 0 { argv[1:].to_owned() } else { [] }
+  let args = if !argv.is_empty() { argv[1:].to_owned() } else { [] }
   match parse_cli(args[:]) {
     CliFail(message~) => {
       @stdio.stderr.write(message + "\n")

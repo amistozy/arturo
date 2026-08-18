@@ -107,7 +107,7 @@ fn iterate_groups(
     Some(VLiteral(s)) | Some(VWord(s)) => Some(s)
     _ => None
   }
-  let loop_step = if names.length() == 0 { 1 } else { names.length() }
+  let loop_step = if names.is_empty() { 1 } else { names.length() }
   // save & restore loop variables
   let saved : Array[(String, Value?)] = names.map(n => (n, ctx.env.get(n)))
   let mut i = 0
@@ -283,7 +283,7 @@ fn b_fold(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let seed = attr_get(ctx.current_attrs, "seed")
   let mut acc = match seed {
     Some(v) => v
-    None => if items.length() > 0 { items[0] } else { VNull }
+    None => if !items.is_empty() { items[0] } else { VNull }
   }
   let start = match seed {
     Some(_) => 0
@@ -351,13 +351,13 @@ fn b_first(ctx : Ctx, args : Array[Value]) -> Unit {
     _ =>
       match args[0] {
         VBlock(items) =>
-          if items.length() > 0 {
+          if !items.is_empty() {
             ctx.push(items[0])
           } else {
             ctx.push(VNull)
           }
         VString(s) =>
-          if s.length() > 0 {
+          if !s.is_empty() {
             ctx.push(VChar(Int::unsafe_to_char(s[0].to_int())))
           } else {
             ctx.push(VNull)
@@ -420,13 +420,13 @@ fn b_last(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     _ =>
       match args[0] {
         VBlock(items) =>
-          if items.length() > 0 {
+          if !items.is_empty() {
             ctx.push(items[items.length() - 1])
           } else {
             ctx.push(VNull)
           }
         VString(s) =>
-          if s.length() > 0 {
+          if !s.is_empty() {
             ctx.push(VChar(Int::unsafe_to_char(s[s.length() - 1].to_int())))
           } else {
             ctx.push(VNull)
@@ -434,7 +434,7 @@ fn b_last(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         VRange(r) =>
           if r.numeric && !r.infinite {
             let vals = r.values()
-            if vals.length() > 0 {
+            if !vals.is_empty() {
               ctx.push(vals[vals.length() - 1])
             } else {
               ctx.push(VNull)
@@ -534,7 +534,7 @@ fn b_pop(ctx : Ctx, args : Array[Value]) -> Unit {
       }
     VBlock(items) => ctx.push(items.pop().unwrap_or(VNull))
     VString(st) =>
-      if st.length() > 0 {
+      if !st.is_empty() {
         ctx.push(VChar(Int::unsafe_to_char(st[st.length() - 1].to_int())))
       } else {
         ctx.push(VNull)
@@ -698,9 +698,9 @@ fn b_inq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `empty? value` / `one? value` / `zero? value`.
 fn b_emptyq(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
-    VBlock(items) => ctx.push(VLogical(items.length() == 0))
-    VString(s) => ctx.push(VLogical(s.length() == 0))
-    VDictionary(d) => ctx.push(VLogical(d.length() == 0))
+    VBlock(items) => ctx.push(VLogical(items.is_empty()))
+    VString(s) => ctx.push(VLogical(s.is_empty()))
+    VDictionary(d) => ctx.push(VLogical(d.is_empty()))
     VInteger(i) => ctx.push(VLogical(i == 0))
     VNull => ctx.push(VLogical(true))
     _ => ctx.push(VLogical(false))
@@ -722,8 +722,8 @@ fn b_zeroq(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
     VInteger(i) => ctx.push(VLogical(i == 0))
     VFloating(f) => ctx.push(VLogical(f == 0.0))
-    VBlock(items) => ctx.push(VLogical(items.length() == 0))
-    VString(s) => ctx.push(VLogical(s.length() == 0))
+    VBlock(items) => ctx.push(VLogical(items.is_empty()))
+    VString(s) => ctx.push(VLogical(s.is_empty()))
     _ => ctx.push(VLogical(false))
   }
 }
@@ -1023,7 +1023,7 @@ fn b_slice(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 /// `max value` / `min value`.
 fn b_max(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let items = iterable_items(args[0])
-  if items.length() == 0 {
+  if items.is_empty() {
     ctx.push(VNull)
     return
   }
@@ -1040,7 +1040,7 @@ fn b_max(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 ///|
 fn b_min(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let items = iterable_items(args[0])
-  if items.length() == 0 {
+  if items.is_empty() {
     ctx.push(VNull)
     return
   }
@@ -1113,7 +1113,7 @@ fn b_lower(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 fn b_capitalize(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VString(s) =>
-      if s.length() > 0 {
+      if !s.is_empty() {
         let first = Int::unsafe_to_char(s[0].to_int()).to_ascii_uppercase()
         ctx.push(VString(first.to_string() + take_string(s, s.length() - 1)))
       } else {
@@ -1495,7 +1495,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         VChar(c) => ctx.push(VChar(c))
         VInteger(i) => ctx.push(VChar(Int::unsafe_to_char(i)))
         VString(s) =>
-          if s.length() > 0 {
+          if !s.is_empty() {
             ctx.push(VChar(Int::unsafe_to_char(s[0].to_int())))
           } else {
             raise RuntimeError(message="cannot convert to :char")

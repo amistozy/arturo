@@ -296,7 +296,7 @@ fn b_let(ctx : Ctx, args : Array[Value]) -> Unit {
           }
           // assign remaining single values
           let diff = values.length() - symbols.length()
-          if diff > 0 && symbols.length() > 0 {
+          if diff > 0 && !symbols.is_empty() {
             match symbols[symbols.length() - 1] {
               VBlock(sub) if sub.length() == 1 => ()
               _ => ()
@@ -477,7 +477,7 @@ fn inspect_value(
           out.write_string("\n")
         }
       }
-      if items.length() > 0 {
+      if !items.is_empty() {
         out.write_string("\n")
       }
       indent(out, level)
@@ -492,7 +492,7 @@ fn inspect_value(
           out.write_string("\n")
         }
       }
-      if items.length() > 0 {
+      if !items.is_empty() {
         out.write_string("\n")
       }
       indent(out, level)
@@ -509,7 +509,7 @@ fn inspect_value(
           out.write_string("\n")
         }
       }
-      if entries.length() > 0 {
+      if !entries.is_empty() {
         out.write_string("\n")
       }
       indent(out, level)
@@ -578,7 +578,7 @@ fn b_parse(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       let parsed = parse(src)
       match parsed {
         VBlock(blk) =>
-          if blk.length() > 0 {
+          if !blk.is_empty() {
             ctx.push(blk[0])
           } else {
             ctx.push(VNull)

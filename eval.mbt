@@ -180,9 +180,8 @@ fn fun_arity(fun : Value) -> Int {
 ///|
 /// Evaluate a whole block (statement by statement).
 fn eval_block(blk : ArrayView[Value], ctx : Ctx) -> Unit raise ArturoError {
-  let mut rest = blk
-  while rest.length() > 0 {
-    rest = eval_statement(rest, ctx)
+  for rest = blk; !rest.is_empty(); rest = eval_statement(rest, ctx) {
+
   }
 }
 
@@ -195,9 +194,9 @@ fn eval_statement(
   ctx : Ctx,
 ) -> ArrayView[Value] raise ArturoError {
   let mut rest = eval_expr(blk, ctx)
-  while rest.length() > 0 && rest[0] is VSymbol(s) && s == "|" {
+  while !rest.is_empty() && rest[0] is VSymbol(s) && s == "|" {
     rest = rest[1:]
-    if rest.length() == 0 {
+    if rest.is_empty() {
       break
     }
     match rest[0] {
@@ -576,7 +575,7 @@ fn call_user(
 ///|
 /// Path access: `a\b`, `a\0`, `\key` (base `this`).
 fn fetch_path(parts : Array[Value], ctx : Ctx) -> Value? {
-  if parts.length() == 0 {
+  if parts.is_empty() {
     return None
   }
   let base = match parts[0] {
@@ -684,7 +683,7 @@ fn collect_arrow(
   let mut rest = blk
   let mut open = 0 // open argument/pipe slots
   let mut done = false
-  while rest.length() > 0 && !done {
+  while !rest.is_empty() && !done {
     let item = rest[0]
     let after = rest[1:]
     match item {
@@ -714,7 +713,7 @@ fn collect_arrow(
         body.push(item)
         if w == "true" || w == "false" {
           // a constant word behaves like a terminal
-          if after.length() > 0 {
+          if !after.is_empty() {
             match after[0] {
               VSymbol(s2) =>
                 match alias_lookup(s2) {
@@ -763,7 +762,7 @@ fn collect_arrow(
               rest = after
             }
             _ =>
-              if after.length() > 0 {
+              if !after.is_empty() {
                 match after[0] {
                   VSymbol(s2) =>
                     match alias_lookup(s2) {
@@ -866,7 +865,7 @@ fn collect_arrow(
         }
       _ => {
         body.push(item)
-        if after.length() > 0 {
+        if !after.is_empty() {
           match after[0] {
             VSymbol(s2) =>
               match alias_lookup(s2) {
@@ -907,7 +906,7 @@ fn collect_arrow(
         }
       }
     }
-    if open == 0 && rest.length() > 0 {
+    if open == 0 && !rest.is_empty() {
       // a completed expression at the root ends the arrow body
       // (pipes and trailing operators belong to the outer statement)
       done = true
@@ -982,7 +981,7 @@ fn exec_dictionary(
 ) -> Map[String, Value] raise ArturoError {
   let out : Map[String, Value] = Map([])
   let mut rest = blk
-  while rest.length() > 0 {
+  while !rest.is_empty() {
     match rest[0] {
       VLabel(name) => {
         rest = eval_statement(rest[1:], ctx)
@@ -1034,7 +1033,7 @@ fn eval_block_last(
   ctx : Ctx,
 ) -> Value raise ArturoError {
   let vals = eval_block_values(blk, ctx)
-  if vals.length() > 0 {
+  if !vals.is_empty() {
     vals[vals.length() - 1]
   } else {
     VNull

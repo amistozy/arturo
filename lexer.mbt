@@ -75,7 +75,7 @@ fn dedent_str(s : String) -> String {
   lines.push(current.to_string())
   let common = lines
     .iter()
-    .filter(line => line.trim().length() > 0)
+    .filter(line => !line.trim().is_empty())
     .map(line => {
       line.find_by(c => c != ' ' && c != '\t').unwrap_or(line.length())
     })
@@ -522,7 +522,7 @@ fn Parser::parse_block(
         p.advance()
         out.push(
           VChar(
-            if id.length() > 0 {
+            if !id.is_empty() {
               id[0].to_int().unsafe_to_char()
             } else {
               '\u{0}'
