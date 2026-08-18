@@ -284,19 +284,28 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
           None => raise rt_err(ctx, "cannot resolve requested value: \{w}")
         }
       }
-    VLabel(name) => {
-      // store: its value is a full statement (pipes allowed)
-      let idx = eval_statement(blk, i + 1, ctx)
-      let v = pop_or_null(ctx)
-      ctx.env.set(name, v)
-      idx
-    }
-    VPathLabel(parts) => {
-      let idx = eval_statement(blk, i + 1, ctx)
-      let v = pop_or_null(ctx)
-      set_path(parts, v, ctx)
-      idx
-    }
+    VLabel(name) =>
+      // store: its value is a full statement (pipes allowed);
+      // a trailing label (nothing after `:`) stores null
+      if i + 1 >= blk.length() {
+        ctx.env.set(name, VNull)
+        i + 1
+      } else {
+        let idx = eval_statement(blk, i + 1, ctx)
+        let v = pop_or_null(ctx)
+        ctx.env.set(name, v)
+        idx
+      }
+    VPathLabel(parts) =>
+      if i + 1 >= blk.length() {
+        set_path(parts, VNull, ctx)
+        i + 1
+      } else {
+        let idx = eval_statement(blk, i + 1, ctx)
+        let v = pop_or_null(ctx)
+        set_path(parts, v, ctx)
+        idx
+      }
     VAttribute(name) => {
       match ctx.pending_attrs.val {
         Some(attrs) => attrs.push((name, VLogical(true)))
@@ -304,15 +313,23 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
       }
       eval_infix_tail(blk, i + 1, ctx)
     }
-    VAttributeLabel(name) => {
-      let idx = eval_expr(blk, i + 1, ctx)
-      let v = pop_or_null(ctx)
-      match ctx.pending_attrs.val {
-        Some(attrs) => attrs.push((name, v))
-        None => ()
+    VAttributeLabel(name) =>
+      if i + 1 >= blk.length() {
+        // a trailing attribute-label records null
+        match ctx.pending_attrs.val {
+          Some(attrs) => attrs.push((name, VNull))
+          None => ()
+        }
+        i + 1
+      } else {
+        let idx = eval_expr(blk, i + 1, ctx)
+        let v = pop_or_null(ctx)
+        match ctx.pending_attrs.val {
+          Some(attrs) => attrs.push((name, v))
+          None => ()
+        }
+        eval_infix_tail(blk, idx, ctx)
       }
-      eval_infix_tail(blk, idx, ctx)
-    }
     VPath(parts) => {
       let v = match fetch_path(parts, ctx) {
         Some(x) => x
