@@ -547,6 +547,38 @@ fn call_user(
 }
 
 ///|
+/// Step one level into a container along a path key: block by integer
+/// index (numeric or literal), dictionary by literal key, string by
+/// integer index (yields a char). Returns `None` when the key is
+/// missing or the container cannot be entered.
+fn path_at(current : Value, key : Value) -> Value? {
+  match (current, key) {
+    (VBlock(items), VInteger(k)) =>
+      if k >= 0 && k < items.length() {
+        Some(items[k])
+      } else {
+        None
+      }
+    (VBlock(items), VLiteral(k)) => {
+      let parsed = @string.parse_int(k) catch { _ => return None }
+      if parsed >= 0 && parsed < items.length() {
+        Some(items[parsed])
+      } else {
+        None
+      }
+    }
+    (VDictionary(d), VLiteral(k)) => d.get(k)
+    (VString(s), VInteger(k)) =>
+      if k >= 0 && k < s.length() {
+        Some(VChar(s[k].unsafe_to_char()))
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
 /// Path access: `a\b`, `a\0`, `\key` (base `this`).
 fn fetch_path(parts : Array[Value], ctx : Ctx) -> Value? {
   if parts.is_empty() {
@@ -562,33 +594,9 @@ fn fetch_path(parts : Array[Value], ctx : Ctx) -> Value? {
       let mut current = start
       let mut idx = 1
       while idx < parts.length() {
-        match (current, parts[idx]) {
-          (VBlock(items), VInteger(k)) =>
-            if k >= 0 && k < items.length() {
-              current = items[k]
-            } else {
-              return None
-            }
-          (VBlock(items), VLiteral(k)) => {
-            let parsed = @string.parse_int(k) catch { _ => return None }
-            if parsed >= 0 && parsed < items.length() {
-              current = items[parsed]
-            } else {
-              return None
-            }
-          }
-          (VDictionary(d), VLiteral(k)) =>
-            match d.get(k) {
-              Some(v2) => current = v2
-              None => return None
-            }
-          (VString(s), VInteger(k)) =>
-            if k >= 0 && k < s.length() {
-              current = VChar(s[k].unsafe_to_char())
-            } else {
-              return None
-            }
-          _ => return None
+        match path_at(current, parts[idx]) {
+          Some(x) => current = x
+          None => return None
         }
         idx += 1
       }
@@ -598,7 +606,8 @@ fn fetch_path(parts : Array[Value], ctx : Ctx) -> Value? {
 }
 
 ///|
-/// Assignment through a path: `d\key: value`, `b\0: value`.
+/// Assignment through a path: `d\key: value`, `b\0: value`,
+/// `d\a\b: value` (nested containers are entered level by level).
 /// The base symbol is re-bound to the updated value.
 fn set_path(
   parts : Array[Value],
@@ -616,12 +625,18 @@ fn set_path(
     Some(x) => x
     None => raise RuntimeError(message="cannot resolve path: \{base_name}")
   }
-  if parts.length() > 2 {
-    raise RuntimeError(
-      message="nested path assignment is not supported in this subset",
-    )
+  // walk into the intermediate containers (path components 1..n-2);
+  // the last component is the assignment target
+  let mut current = base
+  let mut idx = 1
+  while idx < parts.length() - 1 {
+    match path_at(current, parts[idx]) {
+      Some(x) => current = x
+      None => raise RuntimeError(message="cannot resolve path: \{VPath(parts)}")
+    }
+    idx += 1
   }
-  match (base, parts[1]) {
+  match (current, parts[parts.length() - 1]) {
     (VBlock(items), VInteger(k)) =>
       if k >= 0 && k < items.length() {
         items[k] = v

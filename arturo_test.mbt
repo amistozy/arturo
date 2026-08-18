@@ -115,3 +115,43 @@ test "runtime errors are reported" {
   }
   inspect(r, content="runtime error")
 }
+
+///|
+test "nested path assignment in dictionaries" {
+  let src =
+    #|d: #[a: #[b: 1] c: 2]
+    #|print d\a\b
+    #|d\a\b: 42
+    #|print d\a\b
+    #|print d\c
+    #|
+  let r = @arturo.run(src)
+  inspect(r.output, content="1\n42\n2\n")
+}
+
+///|
+test "nested path assignment in blocks" {
+  let src =
+    #|b: [[1 2] [3 4]]
+    #|print b\1\0
+    #|b\1\0: 99
+    #|print b
+    #|
+  let r = @arturo.run(src)
+  inspect(r.output, content="3\n[1 2] [99 4] \n")
+}
+
+///|
+test "nested path assignment with missing intermediate key" {
+  let src =
+    #|d: #[a: 1]
+    #|d\a\b: 2
+    #|
+  let r = try @arturo.run(src) catch {
+    @arturo.ArturoError::RuntimeError(message=_m) => "runtime error"
+    _ => "other"
+  } noraise {
+    _ => "no error"
+  }
+  inspect(r, content="runtime error")
+}
