@@ -671,7 +671,7 @@ fn b_containsq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 }
 
 ///|
-/// `in? item collection` (also `∈`).
+/// `in? item collection` — check membership.
 fn b_inq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let item = args[0]
   match args[1] {

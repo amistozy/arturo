@@ -439,9 +439,9 @@ fn parse_number(p : Parser) -> Value raise ArturoError {
 }
 
 ///|
-/// Parse an operator symbol: read the whole run of symbol characters.
-/// Any combination is accepted; evaluation decides what it means
-/// (`alias_lookup` in eval.mbt, unknown symbols stay symbols).
+/// Parse an operator symbol: read the whole run of ASCII symbol
+/// characters. Any combination is accepted; evaluation decides what it
+/// means (`alias_lookup` in eval.mbt, unknown symbols stay symbols).
 fn parse_symbol(p : Parser) -> String {
   let c = peek(p, 0)
   if c == '#' && is_ident_char(peek(p, 1)) {
@@ -453,16 +453,10 @@ fn parse_symbol(p : Parser) -> String {
     return "#color"
   }
   let start = p.pos
-  while "+*/%^=<>!?~|&@#$-\\:".contains_char(peek(p, 0)) {
+  while "+*/%^=<>!?~|&@#$-\\:.".contains_char(peek(p, 0)) {
     advance(p)
   }
-  let run = p.src[start:p.pos].to_owned()
-  // ASCII rendering of the logical-and symbol (the reference spells it `/\`)
-  if run == "/\\" {
-    "∧"
-  } else {
-    run
-  }
+  p.src[start:p.pos].to_owned()
 }
 
 ///|
@@ -576,36 +570,17 @@ fn parse_block(
       }
       out.push(num)
     } else if c == ':' {
-      let id = parse_identifier(p, false)
-      if id == "" {
-        if peek(p, 0) == ':' {
-          advance(p)
-          out.push(VSymbol("::"))
-        } else if peek(p, 0) == '=' {
-          advance(p)
-          out.push(VSymbol(":="))
-        } else {
-          advance(p)
-          out.push(VSymbol(":"))
-        }
+      // `:ident` is a type; otherwise the whole run (`::`, `:=`, ...)
+      // is a symbol, parsed by `parse_symbol` from the colon itself
+      if is_ident_start(peek(p, 1)) {
+        out.push(VType(parse_identifier(p, false)))
       } else {
-        out.push(VType(id))
+        out.push(VSymbol(parse_symbol(p)))
       }
     } else if c == '.' {
-      if peek(p, 1) == '.' {
-        advance(p)
-        advance(p)
-        if peek(p, 0) == '.' {
-          advance(p)
-          out.push(VSymbol("..."))
-        } else {
-          out.push(VSymbol(".."))
-        }
-      } else if peek(p, 1) == '/' {
-        advance(p)
-        advance(p)
-        out.push(VSymbol("./"))
-      } else {
+      // only `.ident` / `.ident: value` are attributes; every other
+      // dot-prefixed run (`..`, `...`, `./`, ...) is a symbol
+      if is_ident_start(peek(p, 1)) {
         let id = parse_identifier(p, false)
         if peek(p, 0) == ':' {
           advance(p)
@@ -613,6 +588,8 @@ fn parse_block(
         } else {
           out.push(VAttribute(id))
         }
+      } else {
+        out.push(VSymbol(parse_symbol(p)))
       }
     } else if is_ident_start(c) {
       let id = parse_identifier(p, true)
@@ -642,17 +619,8 @@ fn parse_block(
         } else {
           out.push(VPath(path))
         }
-      } else if peek(p, 1) == '\\' {
-        advance(p)
-        advance(p)
-        out.push(VSymbol("\\\\"))
-      } else if peek(p, 1) == '/' {
-        advance(p)
-        advance(p)
-        out.push(VSymbol("∨"))
       } else {
-        advance(p)
-        out.push(VSymbol("\\"))
+        out.push(VSymbol(parse_symbol(p)))
       }
     } else if c == '[' {
       advance(p)
@@ -696,34 +664,7 @@ fn parse_block(
       }
     } else if c == '}' {
       raise ArturoError::ParseError(line=p.line, message="stray `}`")
-    } else if "ø∅".contains_char(c) {
-      advance(p)
-      out.push(VSymbol("∅"))
-    } else if c == '∞' {
-      advance(p)
-      out.push(VSymbol("∞"))
-    } else if c == '∧' {
-      advance(p)
-      out.push(VSymbol("∧"))
-    } else if c == '∨' {
-      advance(p)
-      out.push(VSymbol("∨"))
-    } else if c == '⊻' {
-      advance(p)
-      out.push(VSymbol("⊻"))
-    } else if c == '¬' {
-      advance(p)
-      out.push(VSymbol("¬"))
-    } else if c == '∈' {
-      advance(p)
-      out.push(VSymbol("∈"))
-    } else if c == '∑' {
-      advance(p)
-      out.push(VSymbol("∑"))
-    } else if c == '∏' {
-      advance(p)
-      out.push(VSymbol("∏"))
-    } else if "+*/%^=<>!?~|&@#$-".contains_char(c) {
+    } else if "+*/%^=<>!?~|&@#$-\\:.".contains_char(c) {
       out.push(VSymbol(parse_symbol(p)))
     } else {
       // unknown character: skip it

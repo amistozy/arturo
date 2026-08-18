@@ -78,8 +78,8 @@ moon run cmd/main -- -r
 - Uniform evaluation: `print 1 + 2`, `x: 5`, `f: function [x][ x + 2 ]`,
   blocks as data, labels as stores.
 - Operators: `+ - * / // % ^ = <> < > =< >=` and their word forms
-  (`add`, `equal?`, ...), logical `and?`/`or?`/`not?`/`xor?` (also
-  `∧` `∨` `¬` `⊻`), `?`/`??`/`++`/`--`/`..`/`∈`.
+  (`add`, `equal?`, ...), logical `and?`/`or?`/`not?`/`xor?`,
+  `?`/`??`/`++`/`--`/`..` (ASCII symbols only).
 - Control flow: `if`, `unless`, `switch`, `while`, `until`, `when`, `case`,
   `break`, `continue`, `return`, `do`, `ensure`.
 - Functions: `function`/`$`, arrow bodies `x -> expr`, thick arrows

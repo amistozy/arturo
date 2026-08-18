@@ -28,3 +28,25 @@ test "label in argument position raises instead of panicking" {
   }
   inspect(r, content="RUNTIME line 1: stack underflow")
 }
+
+///|
+test "non-ascii symbols are skipped by the lexer" {
+  // only ASCII symbols are supported; a unicode operator character is
+  // treated as an unknown character and skipped
+  let toks = match parse("print ∞") {
+    VBlock(b) => b
+    _ => []
+  }
+  inspect(
+    toks.map(t => "type=\{type_name(t)} show=\{t}").join(" ; "),
+    content="type=word show=print",
+  )
+  let toks2 = match parse("1 ∧ 1") {
+    VBlock(b) => b
+    _ => []
+  }
+  inspect(
+    toks2.map(t => "type=\{type_name(t)} show=\{t}").join(" ; "),
+    content="type=integer show=1 ; type=integer show=1",
+  )
+}
