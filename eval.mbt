@@ -367,8 +367,7 @@ fn Ctx::pop_args(ctx : Ctx, n : Int) -> Array[Value] raise ArturoError {
   for _ in 0..<n {
     args.push(ctx.pop())
   }
-  arr_reverse(args)
-  args
+  args.rev()
 }
 
 ///|
@@ -1012,7 +1011,7 @@ fn eval_block_values(
   while ctx.stack.length() > before {
     out.push(ctx.pop())
   }
-  arr_reverse(out)
+  out.rev_in_place()
   out
 }
 

@@ -385,19 +385,6 @@ fn take_items(items : Array[Value], n : Int) -> Array[Value] {
 }
 
 ///|
-fn arr_reverse(a : Array[Value]) -> Unit {
-  let mut lo = 0
-  let mut hi = a.length() - 1
-  while lo < hi {
-    let t = a[lo]
-    a[lo] = a[hi]
-    a[hi] = t
-    lo = lo + 1
-    hi = hi - 1
-  }
-}
-
-///|
 fn take_string(s : String, k : Int) -> String {
   let sb = StringBuilder()
   for i = 0; i < k && i < s.length(); i = i + 1 {
@@ -830,11 +817,7 @@ fn b_repeat(ctx : Ctx, args : Array[Value]) -> Unit {
 /// `reverse value`.
 fn b_reverse(ctx : Ctx, args : Array[Value]) -> Unit {
   match args[0] {
-    VBlock(items) => {
-      let copy = items
-      arr_reverse(copy)
-      ctx.push(VBlock(copy))
-    }
+    VBlock(items) => ctx.push(VBlock(items.rev()))
     VString(s) => {
       let sb = StringBuilder()
       for i = s.length() - 1; i >= 0; i = i - 1 {
