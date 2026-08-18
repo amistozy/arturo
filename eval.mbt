@@ -1006,9 +1006,5 @@ fn eval_block_last(
   ctx : Ctx,
 ) -> Value raise ArturoError {
   let vals = eval_block_values(blk, ctx)
-  if !vals.is_empty() {
-    vals[vals.length() - 1]
-  } else {
-    VNull
-  }
+  vals.last().unwrap_or(VNull)
 }
