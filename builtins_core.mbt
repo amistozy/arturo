@@ -522,68 +522,37 @@ fn inspect_value(
 
 ///|
 /// `render string` (also `~`) — interpolate `|...|` code segments.
-/// The `.template` attribute switches to the `<| ... |>` syntax
-/// (following the reference implementation: the template is rewritten
-/// into a `{:...:}` verbatim-string code, evaluated, and all resulting
-/// strings are concatenated).
 fn b_render(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let s = match args[0] {
     VString(s) => s
     _ => ""
   }
-  let is_template = attr_has(ctx.current_attrs.val, "template")
   let out = StringBuilder()
-  if is_template {
-    let rewritten = s
-      .replace_all(old="<|=", new="<| to :string ")
-      .replace_all(old="|>", new="{:")
-      .replace_all(old="<|", new=":}")
-    let code = "{:\{rewritten}:}"
-    let parsed = parse(code) catch {
-      _ => {
-        ctx.push(VString(""))
-        return
-      }
-    }
-    match parsed {
-      VBlock(blk) => {
-        let vals = eval_block_values(blk, ctx)
+  let mut code = false
+  let mut codebuf = StringBuilder()
+  let mut i = 0
+  let len = s.length()
+  while i < len {
+    if code {
+      if s[i] == '|' {
+        let src = codebuf.to_string()
+        codebuf = StringBuilder()
+        code = false
+        let vals = eval_code_segments(src, ctx)
         for v in vals {
-          match v {
-            VString(t) => out.write_string(t)
-            _ => ()
-          }
+          out.write_object(v)
         }
-      }
-      _ => ()
-    }
-  } else {
-    let mut code = false
-    let mut codebuf = StringBuilder()
-    let mut i = 0
-    let len = s.length()
-    while i < len {
-      if code {
-        if s[i] == '|' {
-          let src = codebuf.to_string()
-          codebuf = StringBuilder()
-          code = false
-          let vals = eval_code_segments(src, ctx)
-          for v in vals {
-            out.write_object(v)
-          }
-          i = i + 1
-        } else {
-          codebuf.write_char(Int::unsafe_to_char(s[i].to_int()))
-          i = i + 1
-        }
-      } else if s[i] == '|' {
-        code = true
         i = i + 1
       } else {
-        out.write_char(Int::unsafe_to_char(s[i].to_int()))
+        codebuf.write_char(Int::unsafe_to_char(s[i].to_int()))
         i = i + 1
       }
+    } else if s[i] == '|' {
+      code = true
+      i = i + 1
+    } else {
+      out.write_char(Int::unsafe_to_char(s[i].to_int()))
+      i = i + 1
     }
   }
   ctx.push(VString(out.to_string()))

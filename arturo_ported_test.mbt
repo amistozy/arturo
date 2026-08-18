@@ -286,24 +286,9 @@ test "ported: templates.art" {
     #|print ~"x: |x|"
     #|print render "x: |x|"
     #|
-    #|print ~.template "x: <|= x |>"
-    #|print render.template "x: <|= x |>"
-    #|
-    #|print render.template {
-    #|    rendering the template
-    #|    x: <|= x |>
-    #|    <| switch x>1 [ |>Yep, x is greater than 1
-    #|    <|] [ |>Nope it's not.<|]|>
-    #|}
-    #|
   let expected =
     #|x: 2
     #|x: 2
-    #|x: 2
-    #|x: 2
-    #|rendering the template
-    #|x: 2
-    #|Yep, x is greater than 1
     #|
   check_arturo(src, expected)
 }
@@ -325,21 +310,10 @@ test "ported: strings.art" {
     #|
     #|print enpiped c
     #|
-    #|d: {:
-    #|    Hello
-    #|    world
-    #|:}
-    #|
-    #|print enpiped d
-    #|
   let expected =
     #||Hello world|
     #||Hello 
     #|world|
-    #||
-    #|    Hello
-    #|    world
-    #||
     #|
   check_arturo(src, expected)
 }

@@ -228,17 +228,11 @@ fn parse_string(p : Parser, stopper : Char) -> String raise ArturoError {
 }
 
 ///|
-/// `{...}` curly string / `{:...}` verbatim string.
-/// (The regex form `{/.../}` is parsed as a plain string in this subset.)
+/// `{...}` curly string (dedented).
+/// (The verbatim form `{:...:}` is not supported in this subset.)
 fn parse_curly_string(p : Parser) -> String raise ArturoError {
   let sb = StringBuilder()
   advance(p) // '{'
-  let verbatim = if peek(p, 0) == ':' {
-    advance(p)
-    true
-  } else {
-    false
-  }
   let initial_line = p.line
   let mut curlies = 1
   while true {
@@ -254,10 +248,7 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
       sb.write_char(c)
       advance(p)
     } else if c == '}' {
-      if verbatim {
-        sb.write_char(c)
-        advance(p)
-      } else if curlies == 1 {
+      if curlies == 1 {
         advance(p)
         break
       } else {
@@ -265,21 +256,12 @@ fn parse_curly_string(p : Parser) -> String raise ArturoError {
         sb.write_char(c)
         advance(p)
       }
-    } else if c == ':' && verbatim && peek(p, 1) == '}' {
-      // verbatim strings end with :}
-      advance(p)
-      advance(p)
-      break
     } else {
       sb.write_char(c)
       advance(p)
     }
   }
-  if verbatim {
-    sb.to_string()
-  } else {
-    dedent_str(sb.to_string())
-  }
+  dedent_str(sb.to_string())
 }
 
 ///|
