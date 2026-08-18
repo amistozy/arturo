@@ -377,36 +377,39 @@ fn eval_symbol(
   ctx : Ctx,
   s : String,
 ) -> ArrayView[Value] raise ArturoError {
+  guard blk is [_, .. rest] else {
+    raise RuntimeError(message="unexpected end of block")
+  }
   if s == "->" {
-    let (body, rest) = collect_arrow(blk[1:], ctx)
+    let (body, rest2) = collect_arrow(rest, ctx)
     ctx.push(VBlock(body))
-    rest
+    rest2
   } else if s == "=>" {
-    let (params, sub, rest) = collect_thick_arrow(blk[1:], ctx)
+    let (params, sub, rest2) = collect_thick_arrow(rest, ctx)
     ctx.push(params)
     ctx.push(VBlock(sub))
-    rest
+    rest2
   } else if s == "!" {
     // execute the rest of the block
-    eval_block(blk[1:], ctx)
-    blk[blk.length():]
+    eval_block(rest, ctx)
+    []
   } else if s == "::" {
     // the rest of the block, as a data block value
-    ctx.push(VBlock(blk[1:].to_owned()))
-    blk[blk.length():]
+    ctx.push(VBlock(rest.to_owned()))
+    []
   } else {
     match alias_lookup(s) {
       None => {
         ctx.push(VSymbol(s))
-        blk[1:]
+        rest
       }
       Some((_, name)) =>
         match ctx.env.get(name) {
-          Some(VFunction(_)) => form_call_by_name(blk[1:], ctx, name)
+          Some(VFunction(_)) => form_call_by_name(rest, ctx, name)
           _ => {
             // constant alias (null, infinite, any)
             ctx.push(ctx.env.get(name).unwrap_or(VNull))
-            eval_infix_tail(blk[1:], ctx)
+            eval_infix_tail(rest, ctx)
           }
         }
     }
@@ -456,7 +459,7 @@ fn form_call_by_name(
       [VAttribute(_) | VAttributeLabel(_), ..] =>
         // attributes attach to the call without consuming a slot
         continue eval_expr(rest, ctx), consumed
-      [_, ..] => continue eval_expr(rest, ctx), consumed + 1
+      _ => continue eval_expr(rest, ctx), consumed + 1
     }
   } nobreak {
     rest
@@ -482,7 +485,7 @@ fn invoke(
   attrs? : Array[(String, Value)] = [],
 ) -> Unit raise ArturoError {
   match fun {
-    VFunction(UserFunction(params~, main~, inline=_)) =>
+    VFunction(UserFunction(params~, main~, ..)) =>
       call_user(params, main, args, ctx, attrs)
     VFunction(BuiltinFunction(name=bname)) => {
       let saved = ctx.current_attrs
@@ -527,7 +530,7 @@ fn call_user(
       VNull
     }
   } catch {
-    ArturoError::ReturnSignal(v) => v
+    ReturnSignal(v) => v
     err => {
       ctx.current_attrs = saved_attrs
       ctx.env.pop_scope()
@@ -581,13 +584,13 @@ fn fetch_path(parts : Array[Value], ctx : Ctx) -> Value? {
             }
           (VString(s), VInteger(k)) =>
             if k >= 0 && k < s.length() {
-              current = VChar(Int::unsafe_to_char(s[k].to_int()))
+              current = VChar(s[k].unsafe_to_char())
             } else {
               return None
             }
           _ => return None
         }
-        idx = idx + 1
+        idx += 1
       }
       Some(current)
     }

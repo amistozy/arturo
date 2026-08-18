@@ -49,24 +49,12 @@ fn RangeVal::values(r : RangeVal) -> Array[Value] raise ArturoError {
   let mut v = r.start
   if r.forward {
     while v <= r.stop {
-      out.push(
-        if r.numeric {
-          VInteger(v)
-        } else {
-          VChar(Int::unsafe_to_char(v))
-        },
-      )
+      out.push(if r.numeric { VInteger(v) } else { VChar(v.unsafe_to_char()) })
       v = v + step
     }
   } else {
     while v >= r.stop {
-      out.push(
-        if r.numeric {
-          VInteger(v)
-        } else {
-          VChar(Int::unsafe_to_char(v))
-        },
-      )
+      out.push(if r.numeric { VInteger(v) } else { VChar(v.unsafe_to_char()) })
       v = v + step
     }
   }
@@ -358,7 +346,7 @@ fn b_first(ctx : Ctx, args : Array[Value]) -> Unit {
           }
         VString(s) =>
           if !s.is_empty() {
-            ctx.push(VChar(Int::unsafe_to_char(s[0].to_int())))
+            ctx.push(VChar(s[0].unsafe_to_char()))
           } else {
             ctx.push(VNull)
           }
@@ -388,7 +376,7 @@ fn take_items(items : Array[Value], n : Int) -> Array[Value] {
 fn take_string(s : String, k : Int) -> String {
   let sb = StringBuilder()
   for i = 0; i < k && i < s.length(); i = i + 1 {
-    sb.write_char(Int::unsafe_to_char(s[i].to_int()))
+    sb.write_char(s[i].unsafe_to_char())
   }
   sb.to_string()
 }
@@ -414,7 +402,7 @@ fn b_last(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
           }
         VString(s) =>
           if !s.is_empty() {
-            ctx.push(VChar(Int::unsafe_to_char(s[s.length() - 1].to_int())))
+            ctx.push(VChar(s[s.length() - 1].unsafe_to_char()))
           } else {
             ctx.push(VNull)
           }
@@ -513,7 +501,7 @@ fn b_pop(ctx : Ctx, args : Array[Value]) -> Unit {
           ctx.push(popped)
         }
         Some(VString(st)) => {
-          let last = Int::unsafe_to_char(st[st.length() - 1].to_int())
+          let last = st[st.length() - 1].unsafe_to_char()
           ctx.env.set(s, VString(take_string(st, st.length() - 1)))
           ctx.push(VChar(last))
         }
@@ -522,7 +510,7 @@ fn b_pop(ctx : Ctx, args : Array[Value]) -> Unit {
     VBlock(items) => ctx.push(items.pop().unwrap_or(VNull))
     VString(st) =>
       if !st.is_empty() {
-        ctx.push(VChar(Int::unsafe_to_char(st[st.length() - 1].to_int())))
+        ctx.push(VChar(st[st.length() - 1].unsafe_to_char()))
       } else {
         ctx.push(VNull)
       }
@@ -601,7 +589,7 @@ fn b_index(ctx : Ctx, args : Array[Value]) -> Unit {
       match args[1] {
         VChar(c) => {
           let found = for i in 0..<s.length() {
-            if Int::unsafe_to_char(s[i].to_int()) == c {
+            if s[i].unsafe_to_char() == c {
               break i
             }
           } nobreak {
@@ -821,7 +809,7 @@ fn b_reverse(ctx : Ctx, args : Array[Value]) -> Unit {
     VString(s) => {
       let sb = StringBuilder()
       for i = s.length() - 1; i >= 0; i = i - 1 {
-        sb.write_char(Int::unsafe_to_char(s[i].to_int()))
+        sb.write_char(s[i].unsafe_to_char())
       }
       ctx.push(VString(sb.to_string()))
     }
@@ -1097,7 +1085,7 @@ fn b_capitalize(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VString(s) =>
       if !s.is_empty() {
-        let first = Int::unsafe_to_char(s[0].to_int()).to_ascii_uppercase()
+        let first = s[0].unsafe_to_char().to_ascii_uppercase()
         ctx.push(VString(first.to_string() + take_string(s, s.length() - 1)))
       } else {
         ctx.push(VString(""))
@@ -1476,10 +1464,10 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     "char" =>
       match x {
         VChar(c) => ctx.push(VChar(c))
-        VInteger(i) => ctx.push(VChar(Int::unsafe_to_char(i)))
+        VInteger(i) => ctx.push(VChar(i.unsafe_to_char()))
         VString(s) =>
           if !s.is_empty() {
-            ctx.push(VChar(Int::unsafe_to_char(s[0].to_int())))
+            ctx.push(VChar(s[0].unsafe_to_char()))
           } else {
             raise RuntimeError(message="cannot convert to :char")
           }

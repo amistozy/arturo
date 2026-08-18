@@ -521,13 +521,7 @@ fn Parser::parse_block(
         // char: 'a'
         p.advance()
         out.push(
-          VChar(
-            if !id.is_empty() {
-              id[0].to_int().unsafe_to_char()
-            } else {
-              '\u{0}'
-            },
-          ),
+          VChar(if !id.is_empty() { id[0].unsafe_to_char() } else { '\u{0}' }),
         )
       } else {
         out.push(VLiteral(id))

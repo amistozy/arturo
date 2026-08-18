@@ -91,7 +91,7 @@ fn b_add(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   }
   match (args[0], args[1]) {
     (VChar(c), VInteger(n)) =>
-      ctx.push(VChar(Int::unsafe_to_char(c.to_int() + n)))
+      ctx.push(VChar((c.to_int() + n).unsafe_to_char()))
     _ => bin_num(ctx, args, (a, b) => a + b, (a, b) => a + b)
   }
 }
@@ -103,7 +103,7 @@ fn binop_add(a : Value, b : Value) -> Value {
     (VInteger(x), VFloating(y)) => VFloating(x.to_double() + y)
     (VFloating(x), VInteger(y)) => VFloating(x + y.to_double())
     (VFloating(x), VFloating(y)) => VFloating(x + y)
-    (VChar(c), VInteger(n)) => VChar(Int::unsafe_to_char(c.to_int() + n))
+    (VChar(c), VInteger(n)) => VChar((c.to_int() + n).unsafe_to_char())
     _ => a
   }
 }
@@ -115,7 +115,7 @@ fn b_sub(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   }
   match (args[0], args[1]) {
     (VChar(c), VInteger(n)) =>
-      ctx.push(VChar(Int::unsafe_to_char(c.to_int() - n)))
+      ctx.push(VChar((c.to_int() - n).unsafe_to_char()))
     _ => bin_num(ctx, args, (a, b) => a - b, (a, b) => a - b)
   }
 }
@@ -127,7 +127,7 @@ fn binop_sub(a : Value, b : Value) -> Value {
     (VInteger(x), VFloating(y)) => VFloating(x.to_double() - y)
     (VFloating(x), VInteger(y)) => VFloating(x - y.to_double())
     (VFloating(x), VFloating(y)) => VFloating(x - y)
-    (VChar(c), VInteger(n)) => VChar(Int::unsafe_to_char(c.to_int() - n))
+    (VChar(c), VInteger(n)) => VChar((c.to_int() - n).unsafe_to_char())
     _ => a
   }
 }

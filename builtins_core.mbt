@@ -544,14 +544,14 @@ fn b_render(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         }
         i = i + 1
       } else {
-        codebuf.write_char(Int::unsafe_to_char(s[i].to_int()))
+        codebuf.write_char(s[i].unsafe_to_char())
         i = i + 1
       }
     } else if s[i] == '|' {
       code = true
       i = i + 1
     } else {
-      out.write_char(Int::unsafe_to_char(s[i].to_int()))
+      out.write_char(s[i].unsafe_to_char())
       i = i + 1
     }
   }
