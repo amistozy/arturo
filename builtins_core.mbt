@@ -382,7 +382,7 @@ fn b_ensure(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VBlock(blk) => {
       let v = eval_block_last(blk, ctx)
       if !v.is_truthy() {
-        raise ctx.rt_err("assertion failed: \{VBlock(blk)}")
+        raise RuntimeError(message="assertion failed: \{VBlock(blk)}")
       }
     }
     _ => ()

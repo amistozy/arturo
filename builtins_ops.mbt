@@ -3,22 +3,19 @@
 /// `Arithmetic.nim`, `Comparison.nim` and `Logic.nim`.
 
 ///|
-fn num_args(
-  ctx : Ctx,
-  args : Array[Value],
-) -> (Double, Double) raise ArturoError {
+fn num_args(args : Array[Value]) -> (Double, Double) raise ArturoError {
   let a = match args[0].as_float() {
     Some(x) => x
     None =>
-      raise ctx.rt_err(
-        "wrong argument type: expected number, got \{args[0].type_name()}",
+      raise RuntimeError(
+        message="wrong argument type: expected number, got \{args[0].type_name()}",
       )
   }
   let b = match args[1].as_float() {
     Some(x) => x
     None =>
-      raise ctx.rt_err(
-        "wrong argument type: expected number, got \{args[1].type_name()}",
+      raise RuntimeError(
+        message="wrong argument type: expected number, got \{args[1].type_name()}",
       )
   }
   (a, b)
@@ -26,21 +23,21 @@ fn num_args(
 
 ///|
 fn Ctx::int_args(
-  ctx : Ctx,
+  _ctx : Ctx,
   args : Array[Value],
 ) -> (Int, Int) raise ArturoError {
   let a = match args[0].as_int() {
     Some(x) => x
     None =>
-      raise ctx.rt_err(
-        "wrong argument type: expected integer, got \{args[0].type_name()}",
+      raise RuntimeError(
+        message="wrong argument type: expected integer, got \{args[0].type_name()}",
       )
   }
   let b = match args[1].as_int() {
     Some(x) => x
     None =>
-      raise ctx.rt_err(
-        "wrong argument type: expected integer, got \{args[1].type_name()}",
+      raise RuntimeError(
+        message="wrong argument type: expected integer, got \{args[1].type_name()}",
       )
   }
   (a, b)
@@ -58,7 +55,7 @@ fn bin_num(
   match (args[0], args[1]) {
     (VInteger(a), VInteger(b)) => ctx.push(VInteger(fi(a, b)))
     _ => {
-      let (a, b) = num_args(ctx, args)
+      let (a, b) = num_args(args)
       ctx.push(VFloating(ff(a, b)))
     }
   }
@@ -176,7 +173,7 @@ fn binop_div(a : Value, b : Value) -> Value {
 
 ///|
 fn b_fdiv(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  let (a, b) = num_args(ctx, args)
+  let (a, b) = num_args(args)
   ctx.push(VFloating(a / b))
 }
 
@@ -205,7 +202,7 @@ fn b_pow(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match (args[0], args[1]) {
     (VInteger(a), VInteger(b)) => ctx.push(VInteger(int_pow(a, b)))
     _ => {
-      let (a, b) = num_args(ctx, args)
+      let (a, b) = num_args(args)
       ctx.push(VFloating(@math.pow(a, b)))
     }
   }
@@ -235,8 +232,8 @@ fn b_neg(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     VInteger(a) => ctx.push(VInteger(-a))
     VFloating(a) => ctx.push(VFloating(-a))
     _ =>
-      raise ctx.rt_err(
-        "wrong argument type: expected number, got \{args[0].type_name()}",
+      raise RuntimeError(
+        message="wrong argument type: expected number, got \{args[0].type_name()}",
       )
   }
 }
@@ -250,9 +247,9 @@ fn b_inc(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       match ctx.env.get(s) {
         Some(VInteger(a)) => ctx.env.set(s, VInteger(a + 1))
         Some(VFloating(a)) => ctx.env.set(s, VFloating(a + 1.0))
-        _ => raise ctx.rt_err("wrong argument type")
+        _ => raise RuntimeError(message="wrong argument type")
       }
-    _ => raise ctx.rt_err("wrong argument type")
+    _ => raise RuntimeError(message="wrong argument type")
   }
 }
 
@@ -265,9 +262,9 @@ fn b_dec(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       match ctx.env.get(s) {
         Some(VInteger(a)) => ctx.env.set(s, VInteger(a - 1))
         Some(VFloating(a)) => ctx.env.set(s, VFloating(a - 1.0))
-        _ => raise ctx.rt_err("wrong argument type")
+        _ => raise RuntimeError(message="wrong argument type")
       }
-    _ => raise ctx.rt_err("wrong argument type")
+    _ => raise RuntimeError(message="wrong argument type")
   }
 }
 
@@ -279,7 +276,7 @@ fn b_divmod(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 /// Comparison.
-fn Ctx::cmp_values(ctx : Ctx, a : Value, b : Value) -> Int raise ArturoError {
+fn Ctx::cmp_values(_ctx : Ctx, a : Value, b : Value) -> Int raise ArturoError {
   match (a.as_float(), b.as_float()) {
     (Some(x), Some(y)) => x.compare(y)
     _ =>
@@ -287,8 +284,8 @@ fn Ctx::cmp_values(ctx : Ctx, a : Value, b : Value) -> Int raise ArturoError {
         (VChar(x), VChar(y)) => x.compare(y)
         (VString(x), VString(y)) => compare_strings(x, y)
         _ =>
-          raise ctx.rt_err(
-            "cannot compare \{a.type_name()} with \{b.type_name()}",
+          raise RuntimeError(
+            message="cannot compare \{a.type_name()} with \{b.type_name()}",
           )
       }
   }

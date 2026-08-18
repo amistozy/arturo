@@ -107,12 +107,6 @@ fn Ctx::with_env(env : Env) -> Ctx {
 }
 
 ///|
-/// Runtime error helper.
-fn Ctx::rt_err(_ctx : Ctx, msg : String) -> ArturoError {
-  RuntimeError(message=msg)
-}
-
-///|
 fn Ctx::push(self : Ctx, v : Value) -> Unit {
   self.stack.push(v)
 }
@@ -121,7 +115,7 @@ fn Ctx::push(self : Ctx, v : Value) -> Unit {
 fn Ctx::pop(self : Ctx) -> Value raise ArturoError {
   match self.stack.pop() {
     Some(v) => v
-    None => raise self.rt_err("stack underflow")
+    None => raise RuntimeError(message="stack underflow")
   }
 }
 
@@ -260,7 +254,8 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
             ctx.push(v)
             eval_infix_tail(blk, i + 1, ctx)
           }
-          None => raise ctx.rt_err("cannot resolve requested value: \{w}")
+          None =>
+            raise RuntimeError(message="cannot resolve requested value: \{w}")
         }
       }
     VLabel(name) =>
@@ -312,7 +307,8 @@ fn eval_expr(blk : Array[Value], i : Int, ctx : Ctx) -> Int raise ArturoError {
     VPath(parts) => {
       let v = match fetch_path(parts, ctx) {
         Some(x) => x
-        None => raise ctx.rt_err("cannot resolve path: \{VPath(parts)}")
+        None =>
+          raise RuntimeError(message="cannot resolve path: \{VPath(parts)}")
       }
       ctx.push(v)
       eval_infix_tail(blk, i + 1, ctx)
@@ -337,7 +333,9 @@ fn eval_infix_tail(
             let fun = match ctx.env.get(name) {
               Some(x) => x
               None =>
-                raise ctx.rt_err("cannot resolve requested value: \{name}")
+                raise RuntimeError(
+                  message="cannot resolve requested value: \{name}",
+                )
             }
             let arity = fun_arity(fun)
             let saved = ctx.pending_attrs
@@ -347,7 +345,9 @@ fn eval_infix_tail(
             let mut consumed = 0
             while consumed < to_consume {
               if idx >= blk.length() {
-                raise ctx.rt_err("not enough arguments for operator \{s}")
+                raise RuntimeError(
+                  message="not enough arguments for operator \{s}",
+                )
               }
               if blk[idx] is VAttribute(_) || blk[idx] is VAttributeLabel(_) {
                 // attributes attach to the call without consuming a slot
@@ -443,7 +443,7 @@ fn form_call(
 ) -> Int raise ArturoError {
   match blk[i] {
     VWord(w) => form_call_by_name(blk, i, ctx, w, piped~)
-    _ => raise ctx.rt_err("expected a function name after `|`")
+    _ => raise RuntimeError(message="expected a function name after `|`")
   }
 }
 
@@ -457,13 +457,14 @@ fn form_call_by_name(
 ) -> Int raise ArturoError {
   let fun = match ctx.env.get(name) {
     Some(x) => x
-    None => raise ctx.rt_err("cannot resolve requested value: \{name}")
+    None =>
+      raise RuntimeError(message="cannot resolve requested value: \{name}")
   }
   match fun {
     VFunction(_) => ()
     _ =>
-      raise ctx.rt_err(
-        "cannot call a value of type \{fun.type_name()}: \{name}",
+      raise RuntimeError(
+        message="cannot call a value of type \{fun.type_name()}: \{name}",
       )
   }
   let arity = fun_arity(fun)
@@ -474,7 +475,7 @@ fn form_call_by_name(
   let mut consumed = 0
   while consumed < to_consume {
     if idx >= blk.length() {
-      raise ctx.rt_err("not enough arguments for \{name}")
+      raise RuntimeError(message="not enough arguments for \{name}")
     }
     if blk[idx] is VAttribute(_) || blk[idx] is VAttributeLabel(_) {
       // attributes attach to the call without consuming a slot
@@ -519,7 +520,9 @@ fn invoke(
       ctx.current_attrs = saved
     }
     _ =>
-      raise ctx.rt_err("cannot call value of type \{fun.type_name()}: \{name}")
+      raise RuntimeError(
+        message="cannot call value of type \{fun.type_name()}: \{name}",
+      )
   }
 }
 
@@ -624,7 +627,7 @@ fn set_path(
   ctx : Ctx,
 ) -> Unit raise ArturoError {
   if parts.length() < 2 {
-    raise ctx.rt_err("invalid path for assignment")
+    raise RuntimeError(message="invalid path for assignment")
   }
   let base_name = match parts[0] {
     VWord(w) | VLiteral(w) | VLabel(w) => w
@@ -632,33 +635,35 @@ fn set_path(
   }
   let base = match ctx.env.get(base_name) {
     Some(x) => x
-    None => raise ctx.rt_err("cannot resolve path: \{base_name}")
+    None => raise RuntimeError(message="cannot resolve path: \{base_name}")
   }
   if parts.length() > 2 {
-    raise ctx.rt_err("nested path assignment is not supported in this subset")
+    raise RuntimeError(
+      message="nested path assignment is not supported in this subset",
+    )
   }
   match (base, parts[1]) {
     (VBlock(items), VInteger(k)) =>
       if k >= 0 && k < items.length() {
         items[k] = v
       } else {
-        raise ctx.rt_err("index out of bounds")
+        raise RuntimeError(message="index out of bounds")
       }
     (VBlock(items), VLiteral(k)) => {
       let parsed = @string.parse_int(k) catch {
-        _ => raise ctx.rt_err("invalid index")
+        _ => raise RuntimeError(message="invalid index")
       }
       if parsed >= 0 && parsed < items.length() {
         items[parsed] = v
       } else {
-        raise ctx.rt_err("index out of bounds")
+        raise RuntimeError(message="index out of bounds")
       }
     }
     (VDictionary(d), VLiteral(k)) =>
       // dictionaries are mutable (like the reference's OrderedTable):
       // assign in place, keeping the original insertion position
       d[k] = v
-    _ => raise ctx.rt_err("cannot assign through path")
+    _ => raise RuntimeError(message="cannot assign through path")
   }
 }
 

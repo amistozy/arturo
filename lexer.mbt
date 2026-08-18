@@ -36,7 +36,7 @@ fn eof_char() -> Char {
 
 ///|
 fn is_eof_char(c : Char) -> Bool {
-  c.to_int() == 0
+  c == '\u{0}'
 }
 
 ///|
