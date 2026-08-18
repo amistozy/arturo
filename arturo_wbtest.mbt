@@ -7,9 +7,9 @@ test "trailing label stores null" {
   let r = run("x:")
   inspect(r.output, content="")
   inspect(r.value, content="null")
-  let env = new_env()
+  let env = Env()
   ignore(run_with(env, "x:"))
-  inspect(get_symbol(env, "x").unwrap_or(VNull), content="null")
+  inspect(env.get_symbol("x").unwrap_or(VNull), content="null")
 }
 
 ///|

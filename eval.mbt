@@ -23,7 +23,7 @@ struct Env {
 }
 
 ///|
-fn Env::new() -> Env {
+fn Env::empty() -> Env {
   { syms: Map([]), frames: [] }
 }
 
@@ -88,10 +88,10 @@ priv struct Ctx {
 }
 
 ///|
-fn Ctx::new() -> Ctx {
+fn Ctx::Ctx() -> Ctx {
   {
     stack: [],
-    env: Env::new(),
+    env: Env::empty(),
     out: StringBuilder(),
     pending_attrs: Ref(None),
     current_attrs: Ref([]),

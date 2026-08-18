@@ -7,12 +7,8 @@
 /// block of strings with the script arguments (like the reference
 /// VM's `sys\args`).
 fn env_with_args(args : Array[String]) -> @arturo.Env {
-  let env = @arturo.new_env()
-  @arturo.set_symbol(
-    env,
-    "args",
-    @arturo.Value::block(args.map(@arturo.Value::string)),
-  )
+  let env = @arturo.Env()
+  env.set_symbol("args", @arturo.Value::block(args.map(@arturo.Value::string)))
   env
 }
 

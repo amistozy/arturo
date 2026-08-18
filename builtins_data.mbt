@@ -215,7 +215,7 @@ fn b_select(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let res : Array[Value] = []
   iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (group, ctx2) => {
     let v = action_result(args[2], ctx2)
-    if is_truthy(v) {
+    if v.is_truthy() {
       res.push(group[0])
     }
   })
@@ -239,7 +239,7 @@ fn b_filter(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let res : Array[Value] = []
   iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (group, ctx2) => {
     let v = action_result(args[2], ctx2)
-    if !is_truthy(v) {
+    if !v.is_truthy() {
       res.push(group[0])
     }
   })
@@ -252,7 +252,7 @@ fn b_everyq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let mut ok = true
   iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (_group, ctx2) => {
     let v = action_result(args[2], ctx2)
-    if !is_truthy(v) {
+    if !v.is_truthy() {
       ok = false
       raise ArturoError::BreakSignal
     }
@@ -266,7 +266,7 @@ fn b_someq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let mut found = false
   iterate_groups(args[0], args[1], ctx, ctx.with_attr(), (_group, ctx2) => {
     let v = action_result(args[2], ctx2)
-    if is_truthy(v) {
+    if v.is_truthy() {
       found = true
       raise ArturoError::BreakSignal
     }
@@ -585,7 +585,7 @@ fn remove_value(x : Value, y : Value) -> Value {
 ///|
 /// `insert collection index value`.
 fn b_insert(ctx : Ctx, args : Array[Value]) -> Unit {
-  let idx = as_int(args[1]).unwrap_or(0)
+  let idx = args[1].as_int().unwrap_or(0)
   match args[0] {
     VBlock(items) => {
       let copy = items
@@ -803,7 +803,7 @@ fn b_dictionary(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 ///|
 /// `repeat value times`.
 fn b_repeat(ctx : Ctx, args : Array[Value]) -> Unit {
-  let n = as_int(args[1]).unwrap_or(0)
+  let n = args[1].as_int().unwrap_or(0)
   match args[0] {
     VString(s) => ctx.push(VString(s.repeat(n)))
     VBlock(items) => {
@@ -931,7 +931,7 @@ fn b_unique(ctx : Ctx, args : Array[Value]) -> Unit {
 ///|
 /// `take value n` / `drop value n`.
 fn b_take(ctx : Ctx, args : Array[Value]) -> Unit {
-  let n = as_int(args[1]).unwrap_or(0)
+  let n = args[1].as_int().unwrap_or(0)
   match args[0] {
     VBlock(items) =>
       ctx.push(
@@ -959,7 +959,7 @@ fn b_take(ctx : Ctx, args : Array[Value]) -> Unit {
 
 ///|
 fn b_drop(ctx : Ctx, args : Array[Value]) -> Unit {
-  let n = as_int(args[1]).unwrap_or(0)
+  let n = args[1].as_int().unwrap_or(0)
   match args[0] {
     VBlock(items) =>
       ctx.push(
@@ -988,8 +988,8 @@ fn b_drop(ctx : Ctx, args : Array[Value]) -> Unit {
 ///|
 /// `slice value from to`.
 fn b_slice(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  let from = as_int(args[1]).unwrap_or(0)
-  let to = as_int(args[2]).unwrap_or(0)
+  let from = args[1].as_int().unwrap_or(0)
+  let to = args[2].as_int().unwrap_or(0)
   match args[0] {
     VBlock(items) => {
       let lo = if from < 0 { 0 } else { from }
@@ -1062,7 +1062,7 @@ fn b_sum(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
     .iter()
     .fold(init=(0, false), (state, item) => {
       let (acc, floating) = state
-      match as_float(item) {
+      match item.as_float() {
         Some(f) => (acc + f.to_int(), floating || item is VFloating(_))
         None => (acc, floating)
       }
@@ -1080,7 +1080,7 @@ fn b_product(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let acc = items
     .iter()
     .fold(init=1, (acc, item) => {
-      match as_int(item) {
+      match item.as_int() {
         Some(i) => acc * i
         None => acc
       }
@@ -1214,7 +1214,7 @@ fn b_split(ctx : Ctx, args : Array[Value]) -> Unit {
 ///|
 /// `pad value width` — pad with spaces (or `.with: char`).
 fn b_pad(ctx : Ctx, args : Array[Value]) -> Unit {
-  let width = as_int(args[1]).unwrap_or(0)
+  let width = args[1].as_int().unwrap_or(0)
   let fill = match attr_get(ctx.current_attrs.val, "with") {
     Some(VChar(c)) => c
     _ => ' '
@@ -1326,7 +1326,7 @@ fn b_sign(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_evenq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  match as_int(args[0]) {
+  match args[0].as_int() {
     Some(i) => ctx.push(VLogical(i % 2 == 0))
     None => raise ctx.rt_err("wrong argument type")
   }
@@ -1334,7 +1334,7 @@ fn b_evenq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_oddq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  match as_int(args[0]) {
+  match args[0].as_int() {
     Some(i) => ctx.push(VLogical(i % 2 != 0))
     None => raise ctx.rt_err("wrong argument type")
   }
@@ -1342,7 +1342,7 @@ fn b_oddq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_positiveq(ctx : Ctx, args : Array[Value]) -> Unit {
-  match as_float(args[0]) {
+  match args[0].as_float() {
     Some(f) => ctx.push(VLogical(f > 0.0))
     None => ctx.push(VLogical(false))
   }
@@ -1350,7 +1350,7 @@ fn b_positiveq(ctx : Ctx, args : Array[Value]) -> Unit {
 
 ///|
 fn b_negativeq(ctx : Ctx, args : Array[Value]) -> Unit {
-  match as_float(args[0]) {
+  match args[0].as_float() {
     Some(f) => ctx.push(VLogical(f < 0.0))
     None => ctx.push(VLogical(false))
   }
@@ -1367,7 +1367,7 @@ fn b_infiniteq(ctx : Ctx, args : Array[Value]) -> Unit {
 
 ///|
 fn b_primeq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  match as_int(args[0]) {
+  match args[0].as_int() {
     Some(n) =>
       if n < 2 {
         ctx.push(VLogical(false))
@@ -1387,7 +1387,7 @@ fn b_primeq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_factorial(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  match as_int(args[0]) {
+  match args[0].as_int() {
     Some(n) => {
       let acc = for i in 2..<=n; acc = 1 {
         continue acc * i
@@ -1402,7 +1402,7 @@ fn b_factorial(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_digits(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  match as_int(args[0]) {
+  match args[0].as_int() {
     Some(n) => {
       let s = n.abs().to_string()
       let out : Array[Value] = []
@@ -1417,7 +1417,7 @@ fn b_digits(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_gcd(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  match (as_int(args[0]), as_int(args[1])) {
+  match (args[0].as_int(), args[1].as_int()) {
     (Some(a), Some(b)) => {
       let mut x = a.abs()
       let mut y = b.abs()
@@ -1506,7 +1506,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         VLogical(b) => ctx.push(VLogical(b))
         VInteger(i) => ctx.push(VLogical(i != 0))
         VString(s) => ctx.push(VLogical(s.trim() == "true" || s.trim() == "1"))
-        _ => ctx.push(VLogical(is_truthy(x)))
+        _ => ctx.push(VLogical(x.is_truthy()))
       }
     "block" =>
       match x {
@@ -1531,7 +1531,7 @@ fn b_to(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
         VRange(r) => ctx.push(VRange(r))
         VBlock(items) =>
           if items.length() == 2 {
-            match (as_int(items[0]), as_int(items[1])) {
+            match (items[0].as_int(), items[1].as_int()) {
               (Some(a), Some(b)) =>
                 ctx.push(
                   VRange({

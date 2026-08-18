@@ -7,14 +7,14 @@ fn num_args(
   ctx : Ctx,
   args : Array[Value],
 ) -> (Double, Double) raise ArturoError {
-  let a = match as_float(args[0]) {
+  let a = match args[0].as_float() {
     Some(x) => x
     None =>
       raise ctx.rt_err(
         "wrong argument type: expected number, got \{args[0].type_name()}",
       )
   }
-  let b = match as_float(args[1]) {
+  let b = match args[1].as_float() {
     Some(x) => x
     None =>
       raise ctx.rt_err(
@@ -29,14 +29,14 @@ fn Ctx::int_args(
   ctx : Ctx,
   args : Array[Value],
 ) -> (Int, Int) raise ArturoError {
-  let a = match as_int(args[0]) {
+  let a = match args[0].as_int() {
     Some(x) => x
     None =>
       raise ctx.rt_err(
         "wrong argument type: expected integer, got \{args[0].type_name()}",
       )
   }
-  let b = match as_int(args[1]) {
+  let b = match args[1].as_int() {
     Some(x) => x
     None =>
       raise ctx.rt_err(
@@ -167,7 +167,7 @@ fn binop_div(a : Value, b : Value) -> Value {
   match (a, b) {
     (VInteger(x), VInteger(y)) => VInteger(x / y)
     _ =>
-      match (as_float(a), as_float(b)) {
+      match (a.as_float(), b.as_float()) {
         (Some(x), Some(y)) => VFloating(x / y)
         _ => a
       }
@@ -193,7 +193,7 @@ fn binop_mod(a : Value, b : Value) -> Value {
   match (a, b) {
     (VInteger(x), VInteger(y)) => VInteger(x % y)
     _ =>
-      match (as_float(a), as_float(b)) {
+      match (a.as_float(), b.as_float()) {
         (Some(x), Some(y)) => VFloating(x % y)
         _ => a
       }
@@ -280,7 +280,7 @@ fn b_divmod(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 ///|
 /// Comparison.
 fn Ctx::cmp_values(ctx : Ctx, a : Value, b : Value) -> Int raise ArturoError {
-  match (as_float(a), as_float(b)) {
+  match (a.as_float(), b.as_float()) {
     (Some(x), Some(y)) => x.compare(y)
     _ =>
       match (a, b) {
@@ -356,36 +356,36 @@ fn eval_maybe_block(v : Value, ctx : Ctx) -> Value raise ArturoError {
 ///|
 fn b_andq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let x = eval_maybe_block(args[0], ctx)
-  if !is_truthy(x) {
+  if !x.is_truthy() {
     ctx.push(VLogical(false))
     return
   }
   let y = eval_maybe_block(args[1], ctx)
-  ctx.push(VLogical(is_truthy(y)))
+  ctx.push(VLogical(y.is_truthy()))
 }
 
 ///|
 fn b_orq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let x = eval_maybe_block(args[0], ctx)
-  if is_truthy(x) {
+  if x.is_truthy() {
     ctx.push(VLogical(true))
     return
   }
   let y = eval_maybe_block(args[1], ctx)
-  ctx.push(VLogical(is_truthy(y)))
+  ctx.push(VLogical(y.is_truthy()))
 }
 
 ///|
 fn b_xorq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let x = eval_maybe_block(args[0], ctx)
   let y = eval_maybe_block(args[1], ctx)
-  ctx.push(VLogical(is_truthy(x) != is_truthy(y)))
+  ctx.push(VLogical(x.is_truthy() != y.is_truthy()))
 }
 
 ///|
 fn b_notq(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let x = eval_maybe_block(args[0], ctx)
-  ctx.push(VLogical(!is_truthy(x)))
+  ctx.push(VLogical(!x.is_truthy()))
 }
 
 ///|

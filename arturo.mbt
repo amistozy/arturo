@@ -384,7 +384,7 @@ fn eval_top(blk : Array[Value], ctx : Ctx) -> Value raise ArturoError {
 /// last top-level expression.
 pub fn run(source : String) -> RunResult raise ArturoError {
   let parsed = parse(source)
-  let ctx = Ctx::new()
+  let ctx = Ctx()
   ctx.env.seed()
   match parsed {
     VBlock(blk) => {
@@ -414,20 +414,20 @@ pub fn run_with(env : Env, source : String) -> RunResult raise ArturoError {
 
 ///|
 /// Create a fresh environment (pre-seeded with the builtins).
-pub fn new_env() -> Env {
-  let env = Env::new()
+pub fn Env::Env() -> Env {
+  let env = Env::empty()
   env.seed()
   env
 }
 
 ///|
 /// Fetch a symbol from an environment.
-pub fn get_symbol(env : Env, name : String) -> Value? {
-  env.syms.get(name)
+pub fn Env::get_symbol(self : Env, name : String) -> Value? {
+  self.syms.get(name)
 }
 
 ///|
 /// Set a symbol in an environment.
-pub fn set_symbol(env : Env, name : String, v : Value) -> Unit {
-  env.syms[name] = v
+pub fn Env::set_symbol(self : Env, name : String, v : Value) -> Unit {
+  self.syms[name] = v
 }

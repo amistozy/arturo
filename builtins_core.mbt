@@ -6,7 +6,7 @@
 ///|
 /// `if condition action` — run action if condition is not false/null.
 fn b_if(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  if is_truthy(args[0]) {
+  if args[0].is_truthy() {
     match args[1] {
       VBlock(blk) => {
         eval_block(blk, ctx)
@@ -23,7 +23,7 @@ fn b_if(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 
 ///|
 fn b_unless(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  if !is_truthy(args[0]) {
+  if !args[0].is_truthy() {
     match args[1] {
       VBlock(blk) => {
         eval_block(blk, ctx)
@@ -41,7 +41,7 @@ fn b_unless(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
 ///|
 /// `switch condition action alternative` (also `?`).
 fn b_switch(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
-  if is_truthy(args[0]) {
+  if args[0].is_truthy() {
     match args[1] {
       VBlock(blk) => eval_block(blk, ctx)
       v => ctx.push(v)
@@ -60,7 +60,7 @@ fn b_while(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   let action = args[1]
   let mut cond = args[0]
   while true {
-    if !is_truthy(cond) {
+    if !cond.is_truthy() {
       break
     }
     try {
@@ -110,7 +110,7 @@ fn b_until(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       VBlock(cb) => eval_block_last(cb, ctx)
       _ => VNull
     }
-    if is_truthy(c) {
+    if c.is_truthy() {
       break
     }
   }
@@ -131,7 +131,7 @@ fn b_when(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
       VBlock(c) => eval_block_last(c, ctx)
       v => v
     }
-    if is_truthy(cond) {
+    if cond.is_truthy() {
       match pairs[i + 1] {
         VBlock(a) => {
           eval_block(a, ctx)
@@ -381,7 +381,7 @@ fn b_ensure(ctx : Ctx, args : Array[Value]) -> Unit raise ArturoError {
   match args[0] {
     VBlock(blk) => {
       let v = eval_block_last(blk, ctx)
-      if !is_truthy(v) {
+      if !v.is_truthy() {
         raise ctx.rt_err("assertion failed: \{VBlock(blk)}")
       }
     }
@@ -399,7 +399,7 @@ fn b_dup(ctx : Ctx, args : Array[Value]) -> Unit {
 ///|
 /// `coalesce x y` (also `??`).
 fn b_coalesce(ctx : Ctx, args : Array[Value]) -> Unit {
-  if is_truthy(args[0]) {
+  if args[0].is_truthy() {
     ctx.push(args[0])
   } else {
     ctx.push(args[1])

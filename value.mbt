@@ -122,7 +122,7 @@ pub fn Value::type_of(v : Value) -> Value {
 ///|
 /// Truthiness used by `if`, `while`, `switch`, ... :
 /// only `null` and `false` are falsy (see `isFalse` in `vlogical.nim`).
-pub fn is_truthy(v : Value) -> Bool {
+pub fn Value::is_truthy(v : Value) -> Bool {
   match v {
     VNull => false
     VLogical(b) => b
@@ -132,7 +132,7 @@ pub fn is_truthy(v : Value) -> Bool {
 
 ///|
 /// Numeric view helpers (used by builtins).
-pub fn as_int(v : Value) -> Int? {
+pub fn Value::as_int(v : Value) -> Int? {
   match v {
     VInteger(i) => Some(i)
     VFloating(f) => Some(f.to_int())
@@ -141,7 +141,7 @@ pub fn as_int(v : Value) -> Int? {
 }
 
 ///|
-pub fn as_float(v : Value) -> Double? {
+pub fn Value::as_float(v : Value) -> Double? {
   match v {
     VInteger(i) => Some(i.to_double())
     VFloating(f) => Some(f)
@@ -150,7 +150,7 @@ pub fn as_float(v : Value) -> Double? {
 }
 
 ///|
-pub fn as_string(v : Value) -> String? {
+pub fn Value::as_string(v : Value) -> String? {
   match v {
     VString(s) => Some(s)
     _ => None

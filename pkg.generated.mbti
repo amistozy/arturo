@@ -2,25 +2,11 @@
 package "amistozy/arturo"
 
 // Values
-pub fn as_float(Value) -> Double?
-
-pub fn as_int(Value) -> Int?
-
-pub fn as_string(Value) -> String?
-
-pub fn get_symbol(Env, String) -> Value?
-
-pub fn is_truthy(Value) -> Bool
-
-pub fn new_env() -> Env
-
 pub fn parse(String) -> Value raise ArturoError
 
 pub fn run(String) -> RunResult raise ArturoError
 
 pub fn run_with(Env, String) -> RunResult raise ArturoError
-
-pub fn set_symbol(Env, String, Value) -> Unit
 
 // Errors
 pub(all) suberror ArturoError {
@@ -33,6 +19,9 @@ pub(all) suberror ArturoError {
 
 // Types and methods
 type Env
+pub fn Env::Env() -> Self
+pub fn Env::get_symbol(Self, String) -> Value?
+pub fn Env::set_symbol(Self, String, Value) -> Unit
 
 pub(all) enum FunctionVal {
   UserFunction(params~ : Array[String], main~ : Array[Value], inline~ : Bool)
@@ -75,10 +64,14 @@ pub(all) enum Value {
   VFunction(FunctionVal)
   VType(String)
 }
+pub fn Value::as_float(Self) -> Double?
+pub fn Value::as_int(Self) -> Int?
+pub fn Value::as_string(Self) -> String?
 pub fn Value::block(Array[Self]) -> Self
 pub fn Value::dictionary(Array[(String, Self)]) -> Self
 pub fn Value::floating(Double) -> Self
 pub fn Value::integer(Int) -> Self
+pub fn Value::is_truthy(Self) -> Bool
 pub fn Value::logical(Bool) -> Self
 pub fn Value::null() -> Self
 pub fn Value::string(String) -> Self
