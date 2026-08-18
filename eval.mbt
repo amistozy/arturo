@@ -348,7 +348,10 @@ fn eval_infix_tail(
       [VAttribute(_) | VAttributeLabel(_), ..] =>
         // attributes attach to the call without consuming a slot
         continue eval_expr(args_rest, ctx), consumed
-      [_, ..] => continue eval_expr(args_rest, ctx), consumed + 1
+      [VSymbol("=>"), ..] =>
+        // a thick arrow supplies both params and body (two slots)
+        continue eval_expr(args_rest, ctx), consumed + 2
+      _ => continue eval_expr(args_rest, ctx), consumed + 1
     }
   } nobreak {
     args_rest
@@ -460,6 +463,9 @@ fn form_call_by_name(
       [VAttribute(_) | VAttributeLabel(_), ..] =>
         // attributes attach to the call without consuming a slot
         continue eval_expr(rest, ctx), consumed
+      [VSymbol("=>"), ..] =>
+        // a thick arrow supplies both params and body (two slots)
+        continue eval_expr(rest, ctx), consumed + 2
       _ => continue eval_expr(rest, ctx), consumed + 1
     }
   } nobreak {

@@ -155,3 +155,17 @@ test "nested path assignment with missing intermediate key" {
   }
   inspect(r, content="runtime error")
 }
+
+///|
+test "thick arrow derives params from the body" {
+  let src =
+    #|f: function => print
+    #|f 5
+    #|subOne: function => [& - 1]
+    #|print subOne 10
+    #|mulAddOne: $ => [1 + & * &]
+    #|print mulAddOne 2 3
+    #|
+  let r = @arturo.run(src)
+  inspect(r.output, content="5\n9\n7\n")
+}
